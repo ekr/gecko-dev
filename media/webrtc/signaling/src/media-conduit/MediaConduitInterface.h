@@ -157,6 +157,21 @@ public:
 };
 
 
+// Abstract base classes for external encoder/decoder.
+class VideoEncoder {
+ public:
+  virtual ~VideoEncoder() {}
+
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VideoEncoder);
+};
+
+class VideoDecoder {
+ public:
+  virtual ~VideoDecoder() {}
+
+  NS_INLINE_DECL_THREADSAFE_REFCOUNTING(VideoDecoder);
+};
+
 /**
  * MediaSessionConduit for video
  * Refer to the comments on MediaSessionConduit above for overall
@@ -235,6 +250,20 @@ public:
   virtual MediaConduitErrorCode ConfigureRecvMediaCodecs(
                                 const std::vector<VideoCodecConfig* >& recvCodecConfigList) = 0;
 
+   /**
+    * Set an external encoder
+    * @param encoder
+    * @result: on success, we will use the specified encoder
+    */
+   virtual MediaConduitErrorCode SetExternalSendCodec(int pltype,
+						      VideoEncoder* encoder) = 0;
+   /**
+    * Set an external decoder
+    * @param decoder
+    * @result: on success, we will use the specified decoder
+    */
+   virtual MediaConduitErrorCode SetExternalRecvCodec(int pltype,
+						      VideoDecoder* decoder) = 0;
 
   /**
    * These methods allow unit tests to double-check that the
@@ -351,7 +380,6 @@ public:
     * NOTE: See AudioConduit for more information
     */
   virtual MediaConduitErrorCode EnableAudioLevelExtension(bool enabled, uint8_t id) = 0;
-
 };
 }
 #endif
