@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <iostream>
 #include "CSFLog.h"
 #include "nspr.h"
 
@@ -10,6 +11,7 @@
 
 #include "VideoConduit.h"
 #include "AudioConduit.h"
+#include "YuvStamper.h"
 #include "nsThreadUtils.h"
 #include "LoadManager.h"
 #include "YuvStamper.h"
@@ -28,6 +30,14 @@
 #include <math.h>
 
 namespace mozilla {
+
+#define VIDEO_META_DATA_MAGIC 0x564d444d    // VMDM
+
+struct VideoMetaData {
+  uint32_t magic;
+  uint32_t frame_ct;
+  uint32_t timestamp;
+};
 
 static const char* logTag ="WebrtcVideoSessionConduit";
 
@@ -77,6 +87,11 @@ WebrtcVideoConduit::~WebrtcVideoConduit()
         mOtherDirection->mPtrExtCapture = nullptr;
     }
   }
+
+   if (mPtrExtCodec) {
+     mPtrExtCodec->Release();
+     mPtrExtCodec = NULL;
+   }
 
   //Deal with External Renderer
   if(mPtrViERender)
@@ -277,6 +292,13 @@ MediaConduitErrorCode WebrtcVideoConduit::Init(WebrtcVideoConduit *other)
     return kMediaConduitSessionNotInited;
   }
 
+  mPtrExtCodec = webrtc::ViEExternalCodec::GetInterface(mVideoEngine);
+  if (!mPtrExtCodec) {
+    CSFLogError(logTag, "%s Unable to get external codec interface: %d ",
+                __FUNCTION__,mPtrViEBase->LastError());
+    return kMediaConduitSessionNotInited;
+  }
+
   if( !(mPtrRTP = webrtc::ViERTP_RTCP::GetInterface(mVideoEngine)))
   {
     CSFLogError(logTag, "%s Unable to get video RTCP interface ", __FUNCTION__);
@@ -355,6 +377,12 @@ MediaConduitErrorCode WebrtcVideoConduit::Init(WebrtcVideoConduit *other)
       return kMediaConduitRTCPStatusError;
     }
   }
+
+  mSentFrames = 0;
+
+  mStartTime = PR_IntervalNow();
+  mRecvFrames = 0;
+  mLastRecvFrame = 0;
 
   CSFLogError(logTag, "%s Initialization Done", __FUNCTION__);
   return kMediaConduitNoError;
@@ -548,6 +576,21 @@ WebrtcVideoConduit::ConfigureSendMediaCodec(const VideoCodecConfig* codecConfig)
 
   mPtrRTP->SetRembStatus(mChannel, true, false);
 
+
+#ifdef MOZILLA_INTERNAL_API
+  if (NS_IsMainThread()) {
+    nsresult rv;
+    nsCOMPtr<nsIPrefService> prefs = do_GetService("@mozilla.org/preferences-service;1", &rv);
+    if (NS_SUCCEEDED(rv)) {
+      nsCOMPtr<nsIPrefBranch> branch = do_QueryInterface(prefs);
+
+      if (branch) {
+        branch->GetBoolPref("media.video.frame_metrics", &mFrameMetrics);
+      }
+    }
+  }
+#endif
+
   // by now we should be successfully started the transmission
   mEngineTransmitting = true;
   return kMediaConduitNoError;
@@ -584,6 +627,8 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
   }
 
   mEngineReceiving = false;
+  mReceivingHeight = 0;
+  mSendingHeight = 0;
 
   if(codecConfigList.empty())
   {
@@ -742,7 +787,7 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
       nsCOMPtr<nsIPrefBranch> branch = do_QueryInterface(prefs);
 
       if (branch) {
-	branch->GetBoolPref("media.video.test_latency", &mVideoLatencyTestEnable);
+        branch->GetBoolPref("media.video.frame_metrics", &mFrameMetrics);
       }
     }
   }
@@ -894,6 +939,7 @@ WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
 {
   CSFLogDebug(logTag,  "%s ", __FUNCTION__);
 
+
   //check for  the parameters sanity
   if(!video_frame || video_frame_length == 0 ||
      width == 0 || height == 0)
@@ -904,9 +950,39 @@ WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
   }
 
   webrtc::RawVideoType type;
+  ++mSentFrames;
+
   switch (video_type) {
     case kVideoI420:
       type = webrtc::kVideoI420;
+      if (mFrameMetrics) {
+        PRIntervalTime now = PR_IntervalNow();
+        uint32_t delta_ms = PR_IntervalToMilliseconds(now - mStartTime);
+
+        VideoMetaData meta;
+        meta.magic = htonl(VIDEO_META_DATA_MAGIC);
+        meta.frame_ct = htonl(mSentFrames);
+        uint32_t now_abs = PR_Now() & 0xffffffff;
+        meta.timestamp = htonl(now_abs);
+
+        YuvStamper::Write(width,
+                          height,
+                          width,
+                          reinterpret_cast<uint8_t*>(video_frame),
+                          delta_ms, width/2, height/50);
+        YuvStamper::Write(width,
+                          height,
+                          width,
+                          reinterpret_cast<uint8_t*>(video_frame),
+                          mSentFrames, width/2, height/50 + 30);
+
+        YuvStamper::Encode(width,
+                           height,
+                           width,
+                           reinterpret_cast<uint8_t*>(video_frame),
+                           reinterpret_cast<uint8_t*>(&meta), sizeof(meta),
+                           0, 0);
+      }
       break;
     case kVideoNV21:
       type = webrtc::kVideoNV21;
@@ -1063,6 +1139,7 @@ WebrtcVideoConduit::FrameSizeChange(unsigned int width,
   CSFLogDebug(logTag,  "%s ", __FUNCTION__);
 
 
+
   mReceivingWidth = width;
   mReceivingHeight = height;
 
@@ -1084,6 +1161,41 @@ WebrtcVideoConduit::DeliverFrame(unsigned char* buffer,
                                  void *handle)
 {
   CSFLogDebug(logTag,  "%s Buffer Size %d", __FUNCTION__, buffer_size);
+
+  if (mReceivingWidth && mReceivingHeight) {
+    VideoMetaData meta;
+    memset(&meta, 0, sizeof(meta));
+    bool rv = YuvStamper::Decode(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                                 buffer,
+                                 reinterpret_cast<uint8_t*>(&meta),
+                                 sizeof(meta), 0, 0);
+    if (rv) {
+      if (ntohl(meta.magic) == VIDEO_META_DATA_MAGIC) {
+        uint32_t now = PR_Now() & 0xffffffff;
+        uint32_t delta_ms = (now - ntohl(meta.timestamp))/1000;
+        // OK, we have meta-data. Now scribble stuff on the frames.
+        YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                          buffer, delta_ms, 0,
+                          mReceivingHeight - 60);
+
+	++mRecvFrames;
+	PRIntervalTime nowi = PR_IntervalNow();
+	uint32_t totalms = PR_IntervalToMilliseconds(nowi - mStartTime);
+	if (totalms) {
+	    YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+			      buffer, (mRecvFrames*1000)/totalms, 0,
+			      mReceivingHeight - 90);
+	}
+
+	uint32_t delta_frame = ntohl(meta.frame_ct) - mLastRecvFrame;
+	mLastRecvFrame = ntohl(meta.frame_ct);
+        YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                          buffer, delta_frame, 0,
+                          mReceivingHeight - 120);
+
+      }
+    }
+  }
 
   if(mRenderer)
   {

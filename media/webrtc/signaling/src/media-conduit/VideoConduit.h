@@ -156,7 +156,6 @@ public:
   virtual MediaConduitErrorCode SetExternalRecvCodec(int pltype,
                                                      VideoDecoder* decoder);
 
-
   /**
    * Webrtc transport implementation to send and receive RTP packet.
    * VideoConduit registers itself as ExternalTransport to the VideoEngine
@@ -221,6 +220,8 @@ public:
                       mVideoEngine(nullptr),
                       mTransport(nullptr),
                       mRenderer(nullptr),
+                      mPtrRTP(nullptr),
+                      mPtrExtCodec(nullptr),
                       mPtrExtCapture(nullptr),
                       mEngineTransmitting(false),
                       mEngineReceiving(false),
@@ -232,7 +233,8 @@ public:
 		      mReceivingWidth(640),
 		      mReceivingHeight(480),
 		      mVideoLatencyTestEnable(false),
-		      mVideoLatencyAvg(0)
+                      mVideoLatencyAvg(0),
+                      mFrameMetrics(false)
   {
   }
 
@@ -302,6 +304,7 @@ private:
   mozilla::RefPtr<TransportInterface> mTransport;
   mozilla::RefPtr<VideoRenderer> mRenderer;
 
+
   ScopedCustomReleasePtr<webrtc::ViEBase> mPtrViEBase;
   ScopedCustomReleasePtr<webrtc::ViECapture> mPtrViECapture;
   ScopedCustomReleasePtr<webrtc::ViECodec> mPtrViECodec;
@@ -309,6 +312,7 @@ private:
   ScopedCustomReleasePtr<webrtc::ViERender> mPtrViERender;
   ScopedCustomReleasePtr<webrtc::ViERTP_RTCP> mPtrRTP;
   ScopedCustomReleasePtr<webrtc::ViEExternalCodec> mPtrExtCodec;
+
 
   webrtc::ViEExternalCapture* mPtrExtCapture; // shared
 
@@ -326,10 +330,18 @@ private:
   unsigned short mReceivingHeight;
   bool mVideoLatencyTestEnable;
   uint64_t mVideoLatencyAvg;
+  bool mFrameMetrics;
 
   static const unsigned int sAlphaNum = 7;
   static const unsigned int sAlphaDen = 8;
   static const unsigned int sRoundingPadding = 1024;
+  uint32_t mSentFrames;
+
+#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
+  PRIntervalTime mStartTime;
+  uint32_t mRecvFrames;
+  uint32_t mLastRecvFrame;
+#endif
 
   mozilla::RefPtr<WebrtcAudioConduit> mSyncedTo;
 };
