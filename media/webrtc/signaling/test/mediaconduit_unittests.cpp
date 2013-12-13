@@ -15,10 +15,17 @@ using namespace std;
 #include <MediaConduitInterface.h>
 #include "nsIEventTarget.h"
 #include "FakeMediaStreamsImpl.h"
+#include "GmpVideoCodec.h"
+#include "nsThreadUtils.h"
+#include "runnable_utils.h"
 
 #define GTEST_HAS_RTTI 0
 #include "gtest/gtest.h"
 #include "gtest_utils.h"
+
+nsCOMPtr<nsIThread> gMainThread;
+nsCOMPtr<nsIThread> gGtestThread;
+bool gTestsComplete = false;
 
 #include "mtransport_test_utils.h"
 MtransportTestUtils *test_utils;
@@ -48,7 +55,6 @@ struct VideoTestStats
 
 VideoTestStats vidStatsGlobal={0,0,0};
 
-
 /**
  * A Dummy Video Conduit Tester.
  * The test-case inserts a 640*480 grey imagerevery 33 milliseconds
@@ -59,7 +65,8 @@ class VideoSendAndReceive
 {
 public:
   VideoSendAndReceive():width(640),
-                        height(480)
+                        height(480),
+			rate(30)
   {
   }
 
@@ -67,36 +74,61 @@ public:
   {
   }
 
+  void SetDimensions(int w, int h)
+  {
+    width = w;
+    height = h;
+  }
+  void SetRate(int r) {
+    rate = r;
+  }
   void Init(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession)
   {
         mSession = aSession;
+        mLen = ((width * height) * 3 / 2);
+        mFrame = (uint8_t*) PR_MALLOC(mLen);
+        memset(mFrame, COLOR, mLen);
+        numFrames = 121;
   }
+
+  void Init(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession,
+            const char *file, int w, int h)
+  {
+        SetDimensions(w, h);
+        mSession = aSession;
+        mLen = ((width * height) * 3 / 2);
+        mFrame = (uint8_t*) PR_MALLOC(mLen);
+        FILE *fp = fopen(file, "r");
+        ASSERT_TRUE(fp != nullptr);
+        int rv = fread(mFrame.get(), 1, mLen, fp);
+        fclose(fp);
+        ASSERT_EQ(mLen, rv);
+        numFrames = 200;
+  }
+
   void GenerateAndReadSamples()
   {
-
-    int len = ((width * height) * 3 / 2);
-    uint8_t* frame = (uint8_t*) PR_MALLOC(len);
-    int numFrames = 121;
-    memset(frame, COLOR, len);
-
     do
     {
-      mSession->SendVideoFrame((unsigned char*)frame,
-                                len,
+      mSession->SendVideoFrame((unsigned char*)mFrame,
+                                mLen,
                                 width,
                                 height,
                                 mozilla::kVideoI420,
                                 0);
-      PR_Sleep(PR_MillisecondsToInterval(33));
+      PR_Sleep(PR_MillisecondsToInterval(1000/rate));
       vidStatsGlobal.numRawFramesInserted++;
       numFrames--;
     } while(numFrames >= 0);
-    PR_Free(frame);
   }
 
 private:
 mozilla::RefPtr<mozilla::VideoSessionConduit> mSession;
+mozilla::ScopedDeletePtr<uint8_t> mFrame;
+int mLen;
 int width, height;
+int rate;
+int numFrames;
 };
 
 
@@ -267,17 +299,17 @@ void AudioSendAndReceive::GenerateMusic(short* buf, int len)
 //Hardcoded for 16 bit samples for now
 void AudioSendAndReceive::GenerateAndReadSamples()
 {
-   int16_t audioInput[PLAYOUT_SAMPLE_LENGTH];
-   int16_t audioOutput[PLAYOUT_SAMPLE_LENGTH];
+   mozilla::ScopedDeletePtr<int16_t> audioInput(new int16_t [PLAYOUT_SAMPLE_LENGTH]);
+   mozilla::ScopedDeletePtr<int16_t> audioOutput(new int16_t [PLAYOUT_SAMPLE_LENGTH]);
    short* inbuf;
    int sampleLengthDecoded = 0;
    unsigned int SAMPLES = (PLAYOUT_SAMPLE_FREQUENCY * 10); //10 seconds
    int CHANNELS = 1; //mono audio
-   int sampleLengthInBytes = sizeof(audioInput);
+   int sampleLengthInBytes = sizeof(int16_t) * PLAYOUT_SAMPLE_LENGTH;
    //generated audio buffer
    inbuf = (short *)moz_xmalloc(sizeof(short)*SAMPLES*CHANNELS);
-   memset(audioInput,0,sampleLengthInBytes);
-   memset(audioOutput,0,sampleLengthInBytes);
+   memset(audioInput.get(),0,sampleLengthInBytes);
+   memset(audioOutput.get(),0,sampleLengthInBytes);
    MOZ_ASSERT(SAMPLES <= PLAYOUT_SAMPLE_LENGTH);
 
    FILE* inFile = fopen( iFile.c_str(), "wb+");
@@ -303,7 +335,7 @@ void AudioSendAndReceive::GenerateAndReadSamples()
    unsigned int numSamplesReadFromInput = 0;
    do
    {
-    if(!memcpy(audioInput, inbuf, sampleLengthInBytes))
+    if(!memcpy(audioInput.get(), inbuf, sampleLengthInBytes))
     {
       return;
     }
@@ -311,19 +343,19 @@ void AudioSendAndReceive::GenerateAndReadSamples()
     numSamplesReadFromInput += PLAYOUT_SAMPLE_LENGTH;
     inbuf += PLAYOUT_SAMPLE_LENGTH;
 
-    mSession->SendAudioFrame(audioInput,
+    mSession->SendAudioFrame(audioInput.get(),
                              PLAYOUT_SAMPLE_LENGTH,
                              PLAYOUT_SAMPLE_FREQUENCY,10);
 
     PR_Sleep(PR_MillisecondsToInterval(10));
-    mOtherSession->GetAudioFrame(audioOutput, PLAYOUT_SAMPLE_FREQUENCY,
+    mOtherSession->GetAudioFrame(audioOutput.get(), PLAYOUT_SAMPLE_FREQUENCY,
                                  10, sampleLengthDecoded);
     if(sampleLengthDecoded == 0)
     {
       cerr << " Zero length Sample " << endl;
     }
 
-    int wrote_  = fwrite (audioOutput, 1 , sampleLengthInBytes, outFile);
+    int wrote_  = fwrite (audioOutput.get(), 1 , sampleLengthInBytes, outFile);
     if(wrote_ != sampleLengthInBytes)
     {
       cerr << "Couldn't Write " << sampleLengthInBytes << "bytes" << endl;
@@ -396,22 +428,22 @@ public:
 };
 
 /**
- *  Fake Audio and Video External Transport Class
+ *  Webrtc Audio and Video External Transport Class
  *  The functions in this class will be invoked by the conduit
  *  when it has RTP/RTCP frame to transmit.
  *  For everty RTP/RTCP frame we receive, we pass it back
  *  to the conduit for eventual decoding and rendering.
  */
-class FakeMediaTransport : public mozilla::TransportInterface
+class WebrtcMediaTransport : public mozilla::TransportInterface
 {
 public:
-  FakeMediaTransport():numPkts(0),
+  WebrtcMediaTransport():numPkts(0),
                        mAudio(false),
                        mVideo(false)
   {
   }
 
-  ~FakeMediaTransport()
+  ~WebrtcMediaTransport()
   {
   }
 
@@ -475,6 +507,7 @@ namespace {
 class TransportConduitTest : public ::testing::Test
 {
  public:
+
   TransportConduitTest()
   {
     //input and output file names
@@ -499,7 +532,7 @@ class TransportConduitTest : public ::testing::Test
     if( !mAudioSession2 )
       ASSERT_NE(mAudioSession2, (void*)nullptr);
 
-    FakeMediaTransport* xport = new FakeMediaTransport();
+    WebrtcMediaTransport* xport = new WebrtcMediaTransport();
     ASSERT_NE(xport, (void*)nullptr);
     xport->SetAudioSession(mAudioSession, mAudioSession2);
     mAudioTransport = xport;
@@ -545,7 +578,7 @@ class TransportConduitTest : public ::testing::Test
   }
 
   //2. Dump audio samples to dummy external transport
-  void TestDummyVideoAndTransport()
+  void TestDummyVideoAndTransport(bool send_vp8 = true, const char *source_file = nullptr)
   {
     int err = 0;
     //get pointer to VideoSessionConduit
@@ -558,10 +591,14 @@ class TransportConduitTest : public ::testing::Test
     if( !mVideoSession2 )
       ASSERT_NE(mVideoSession2,(void*)nullptr);
 
+    if (!send_vp8) {
+      SetGmpCodecs();
+    }
+
     mVideoRenderer = new DummyVideoTarget();
     ASSERT_NE(mVideoRenderer, (void*)nullptr);
 
-    FakeMediaTransport* xport = new FakeMediaTransport();
+    WebrtcMediaTransport* xport = new WebrtcMediaTransport();
     ASSERT_NE(xport, (void*)nullptr);
     xport->SetVideoSession(mVideoSession,mVideoSession2);
     mVideoTransport = xport;
@@ -583,9 +620,15 @@ class TransportConduitTest : public ::testing::Test
     rcvCodecList.push_back(&cinst1);
     rcvCodecList.push_back(&cinst2);
 
-    err = mVideoSession->ConfigureSendMediaCodec(&cinst1);
+    err = mVideoSession->ConfigureSendMediaCodec(
+        send_vp8 ? &cinst1 : &cinst2);
+
     ASSERT_EQ(mozilla::kMediaConduitNoError, err);
 
+    err = mVideoSession2->ConfigureSendMediaCodec(
+        send_vp8 ? &cinst1 : &cinst2);
+
+    ASSERT_EQ(mozilla::kMediaConduitNoError, err);
     err = mVideoSession2->ConfigureRecvMediaCodecs(rcvCodecList);
     ASSERT_EQ(mozilla::kMediaConduitNoError, err);
 
@@ -594,9 +637,15 @@ class TransportConduitTest : public ::testing::Test
     cerr << "    Starting the Video Sample Generation " << endl;
     cerr << "   *************************************************" << endl;
     PR_Sleep(PR_SecondsToInterval(2));
-    videoTester.Init(mVideoSession);
+    if (source_file) {
+      videoTester.Init(mVideoSession, source_file, 320, 240);
+    }
+    else {
+      videoTester.Init(mVideoSession);
+    }
     videoTester.GenerateAndReadSamples();
     PR_Sleep(PR_SecondsToInterval(2));
+
     cerr << "   **************************************************" << endl;
     cerr << "    Done With The Testing  " << endl;
     cerr << "    VIDEO TEST STATS  "  << endl;
@@ -861,7 +910,15 @@ class TransportConduitTest : public ::testing::Test
     cerr << endl;
  }
 
-private:
+  void SetGmpCodecs() {
+    mExternalEncoder = mozilla::GmpVideoCodec::CreateEncoder();
+    mExternalDecoder = mozilla::GmpVideoCodec::CreateDecoder();
+
+    mVideoSession->SetExternalSendCodec(124, mExternalEncoder);
+    mVideoSession2->SetExternalRecvCodec(124, mExternalDecoder);
+  }
+
+ private:
   //Audio Conduit Test Objects
   mozilla::RefPtr<mozilla::AudioSessionConduit> mAudioSession;
   mozilla::RefPtr<mozilla::AudioSessionConduit> mAudioSession2;
@@ -874,6 +931,9 @@ private:
   mozilla::RefPtr<mozilla::VideoRenderer> mVideoRenderer;
   mozilla::RefPtr<mozilla::TransportInterface> mVideoTransport;
   VideoSendAndReceive videoTester;
+
+  mozilla::VideoEncoder* mExternalEncoder;
+  mozilla::VideoDecoder* mExternalDecoder;
 
   std::string fileToPlay;
   std::string fileToRecord;
@@ -892,6 +952,14 @@ TEST_F(TransportConduitTest, TestDummyVideoWithTransport) {
   TestDummyVideoAndTransport();
  }
 
+TEST_F(TransportConduitTest, TestVideoConduitExternalCodec) {
+  TestDummyVideoAndTransport(false);
+}
+
+TEST_F(TransportConduitTest, TestVideoConduitExternalCodecFixedVideo) {
+  TestDummyVideoAndTransport(false, "./ekr-i420.dat");
+}
+
 TEST_F(TransportConduitTest, TestVideoConduitCodecAPI) {
   TestVideoConduitCodecAPI();
  }
@@ -902,16 +970,65 @@ TEST_F(TransportConduitTest, TestVideoConduitMaxFs) {
 
 }  // end namespace
 
+static int test_result;
+bool test_finished = false;
+
+
+
+// This exists to send as an event to trigger shutdown.
+static void tests_complete() {
+  gTestsComplete = true;
+}
+
+// The GTest thread runs this instead of the main thread so it can
+// do things like ASSERT_TRUE_WAIT which you could not do on the main thread.
+static int gtest_main(int argc, char **argv) {
+  MOZ_ASSERT(!NS_IsMainThread());
+
+  ::testing::InitGoogleTest(&argc, argv);
+
+  int result = RUN_ALL_TESTS();
+
+  // Set the global shutdown flag and tickle the main thread
+  // The main thread did not go through Init() so calling Shutdown()
+  // on it will not work.
+  gMainThread->Dispatch(mozilla::WrapRunnableNM(tests_complete), NS_DISPATCH_SYNC);
+
+  return result;
+}
+
 int main(int argc, char **argv)
 {
   // This test can cause intermittent oranges on the builders
   CHECK_ENVIRONMENT_FLAG("MOZ_WEBRTC_MEDIACONDUIT_TESTS")
 
   test_utils = new MtransportTestUtils();
-  ::testing::InitGoogleTest(&argc, argv);
-  int rv = RUN_ALL_TESTS();
+
+  // Set the main thread global which is this thread.
+  nsIThread *thread;
+  NS_GetMainThread(&thread);
+  gMainThread = thread;
+  MOZ_ASSERT(NS_IsMainThread());
+
+  // Now create the GTest thread and run all of the tests on it
+  // When it is complete it will set gTestsComplete
+  NS_NewNamedThread("gtest_thread", &thread);
+  gGtestThread = thread;
+
+  int result;
+  gGtestThread->Dispatch(
+    mozilla::WrapRunnableNMRet(gtest_main, argc, argv, &result), NS_DISPATCH_NORMAL);
+
+  // Here we handle the event queue for dispatches to the main thread
+  // When the GTest thread is complete it will send one more dispatch
+  // with gTestsComplete == true.
+  while (!gTestsComplete && NS_ProcessNextEvent());
+
+  gGtestThread->Shutdown();
+
   delete test_utils;
-  return rv;
+  return test_result;
 }
+
 
 

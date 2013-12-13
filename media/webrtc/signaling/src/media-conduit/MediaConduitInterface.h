@@ -405,7 +405,6 @@ public:
     * NOTE: See AudioConduit for more information
     */
   virtual MediaConduitErrorCode EnableAudioLevelExtension(bool enabled, uint8_t id) = 0;
-
 };
 }
 #endif

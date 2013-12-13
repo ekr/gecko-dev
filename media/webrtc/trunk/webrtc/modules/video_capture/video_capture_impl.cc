@@ -297,6 +297,7 @@ int32_t VideoCaptureImpl::IncomingFrame(
                        frameInfo.rawType);
             return -1;
         }
+
         DeliverCapturedFrame(_captureFrame, captureTime);
     }
     else // Encoded format
@@ -319,6 +320,8 @@ int32_t VideoCaptureImpl::IncomingFrame(
 
 int32_t VideoCaptureImpl::IncomingFrameI420(
     const VideoFrameI420& video_frame, int64_t captureTime) {
+  WEBRTC_TRACE(webrtc::kTraceError, webrtc::kTraceVideoCapture, _id,
+	       "EKR: VideoCaptureImpl::IncomingFrameI420");
 
   CriticalSectionScoped cs(&_callBackCs);
   int size_y = video_frame.height * video_frame.y_pitch;

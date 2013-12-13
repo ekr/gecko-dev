@@ -298,6 +298,10 @@ int ViECapturer::IncomingFrame(unsigned char* video_frame,
                                RawVideoType video_type,
                                unsigned long long capture_time) {  // NOLINT
   WEBRTC_TRACE(kTraceInfo, kTraceVideo, ViEId(engine_id_, capture_id_),
+               "EKR: ExternalCapture::IncomingFrame width %d, height %d, "
+               "capture_time %u", width, height, capture_time);
+
+  WEBRTC_TRACE(kTraceInfo, kTraceVideo, ViEId(engine_id_, capture_id_),
                "ExternalCapture::IncomingFrame width %d, height %d, "
                "capture_time %u", width, height, capture_time);
 

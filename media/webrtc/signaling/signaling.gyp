@@ -88,6 +88,9 @@
         './src/media-conduit/AudioConduit.cpp',
         './src/media-conduit/VideoConduit.h',
         './src/media-conduit/VideoConduit.cpp',
+        './src/media-conduit/WebrtcGmpVideoCodec.cpp',
+        './src/media-conduit/GmpVideoCodec.cpp',
+
         # Common
         './src/common/CommonTypes.h',
         './src/common/csf_common.h',
@@ -95,6 +98,7 @@
         './src/common/Wrapper.h',
         './src/common/NullTransport.h',
         './src/common/YuvStamper.cpp',
+
         # Browser Logging
         './src/common/browser_logging/CSFLog.cpp',
         './src/common/browser_logging/CSFLog.h',
@@ -182,6 +186,7 @@
         'HAVE_UINT16_T=1',
         'HAVE_UINT32_T=1',
         'HAVE_UINT64_T=1',
+        'VIDEOCONDUIT_INSERT_TIMESTAMP'
       ],
 
       'cflags_mozilla': [
