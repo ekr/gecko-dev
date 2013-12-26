@@ -91,6 +91,7 @@
         './src/media-conduit/FakeVideoCodec.cpp',
         './src/media-conduit/WebrtcGmpVideoCodec.cpp',
         './src/media-conduit/GmpVideoCodec.cpp',
+        './src/media-conduit/YuvStamper.cpp',
 
         # Common
         './src/common/CommonTypes.h',
@@ -183,6 +184,7 @@
         'HAVE_UINT16_T=1',
         'HAVE_UINT32_T=1',
         'HAVE_UINT64_T=1',
+        'VIDEOCONDUIT_INSERT_TIMESTAMP'
       ],
 
       'cflags_mozilla': [
