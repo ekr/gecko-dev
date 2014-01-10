@@ -362,6 +362,8 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
+  if (decoded.iBufferStatus != 1)
+    return WEBRTC_VIDEO_CODEC_OK;
 
   MutexAutoLock lock(mutex_);
   int width;
