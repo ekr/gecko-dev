@@ -200,7 +200,7 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   const SSourcePicture* pics = &src;
 
   PRIntervalTime t0 = PR_IntervalNow();
-  int type = encoder_->EncodeFrame(&pics, 1, &encoded);
+  int type = encoder_->EncodeFrame2(&pics, 1, &encoded);
   PRIntervalTime t1 = PR_IntervalNow();
 
   MOZ_MTLOG(ML_DEBUG, "Encoding time: " << PR_IntervalToMilliseconds(
@@ -324,7 +324,7 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   memset(&decoded, 0, sizeof(decoded));
   void *data[3] = {nullptr, nullptr, nullptr};
   MOZ_MTLOG(ML_DEBUG, "Decoding frame input length=" << inputImage._length);
-  int rv = decoder_->DecodeFrame(inputImage._buffer,
+  int rv = decoder_->DecodeFrame2(inputImage._buffer,
                                  inputImage._length,
                                  data,
                                  &decoded);
