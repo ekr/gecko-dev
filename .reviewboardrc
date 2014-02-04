@@ -1,5 +1,4 @@
-# This Source Code Form is subject to the terms of the Mozilla Public
-# License, v. 2.0. If a copy of the MPL was not distributed with this
-# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+REVIEWBOARD_URL = 'https://rbcommons.com/s/OpenH264/'
+REPOSITORY = 'Gecko-Dev'
+TRACKING_BRANCH = 'origin/openh264_integration'
 
-REVIEWBOARD_URL = 'https://reviewboard.allizom.org/'
