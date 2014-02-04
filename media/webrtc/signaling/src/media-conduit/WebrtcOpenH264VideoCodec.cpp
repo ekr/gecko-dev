@@ -7,10 +7,6 @@
 #include "logging.h"
 #include "nspr.h"
 
-#include "codec_def.h"
-#include "codec_app_def.h"
-#include "codec_api.h"
-
 #include <iostream>
 
 #include <mozilla/Scoped.h>
@@ -22,7 +18,6 @@
 #include "codec_def.h"
 #include "codec_app_def.h"
 #include "codec_api.h"
-#include "param_svc.h"
 
 
 #include "runnable_utils.h"
@@ -362,6 +357,8 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
+  if (decoded.iBufferStatus != 1)
+    return WEBRTC_VIDEO_CODEC_OK;
 
   MutexAutoLock lock(mutex_);
   int width;
@@ -380,24 +377,21 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
     width = decoded.UsrData.sVideoBuffer.iSurfaceWidth;
     height = decoded.UsrData.sVideoBuffer.iSurfaceHeight;
   }
-  int len = width * height;
 
-  if (len) {
-    if (decoded_image_.CreateFrame(ystride * height, static_cast<uint8_t *>(data[0]),
+  if (decoded_image_.CreateFrame(ystride * height, static_cast<uint8_t *>(data[0]),
                                    uvstride * height/2, static_cast<uint8_t *>(data[1]),
                                    uvstride * height/2, static_cast<uint8_t *>(data[2]),
                                    width, height,
                                    ystride, uvstride, uvstride
                                    ))
-      return WEBRTC_VIDEO_CODEC_ERROR;
-    decoded_image_.set_timestamp(inputImage._timeStamp);
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  decoded_image_.set_timestamp(inputImage._timeStamp);
 
-    RUN_ON_THREAD(thread_,
+  RUN_ON_THREAD(thread_,
                   // Shared pointer keeps the object live.
                   WrapRunnable(nsRefPtr<WebrtcOpenH264VideoDecoder>(this),
                                &WebrtcOpenH264VideoDecoder::RunCallback),
                   NS_DISPATCH_NORMAL);
-  }
 
   return WEBRTC_VIDEO_CODEC_OK;
 }
