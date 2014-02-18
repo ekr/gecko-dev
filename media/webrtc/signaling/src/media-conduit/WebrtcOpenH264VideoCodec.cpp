@@ -111,7 +111,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  SVCEncodingParam param;
+  SEncParamExt param;
   memset(&param, 0, sizeof(param));
 
   MOZ_MTLOG(ML_INFO, "Initializing encoder at "
@@ -128,7 +128,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   param.iTemporalLayerNum = 1;
   param.iSpatialLayerNum = 1;
   // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
-  param.fFrameRate = codecSettings->maxFramerate;
+  param.fMaxFrameRate = codecSettings->maxFramerate;
   param.iInputCsp = videoFormatI420;
 
   // Set up layers. Currently we have one layer.
@@ -138,7 +138,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   layer->iVideoHeight = codecSettings->height;
   layer->iQualityLayerNum = 1;
   layer->iSpatialBitrate = param.iTargetBitrate;
-  layer->fFrameRate = param.fFrameRate;
+  layer->fFrameRate = param.fMaxFrameRate;
 
   // Based on guidance from Cisco.
   layer->sSliceCfg.sSliceArgument.uiSliceMbNum[0] = 1000;
@@ -284,7 +284,7 @@ int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
   }
-  
+
   //update framerate
   float newFrameRate = static_cast<float>(frameRate);
   rv = encoder_->SetOption(ENCODER_OPTION_FRAME_RATE, &newFrameRate);
@@ -294,7 +294,7 @@ int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
     MOZ_MTLOG(ML_ERROR, "Error in Setting Encoder Frame Rate: ReturnValue: " << rv);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -369,17 +369,11 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   int ystride;
   int uvstride;
 
-  if (decoded.eBufferProperty == BUFFER_HOST) {
-    width = decoded.UsrData.sSystemBuffer.iWidth;
-    height = decoded.UsrData.sSystemBuffer.iHeight;
-    ystride = decoded.UsrData.sSystemBuffer.iStride[0];
-    uvstride = decoded.UsrData.sSystemBuffer.iStride[1];
-  } else {
-    // TODO(ekr@rtfm.com): How can this happen
-    MOZ_CRASH();
-    width = decoded.UsrData.sVideoBuffer.iSurfaceWidth;
-    height = decoded.UsrData.sVideoBuffer.iSurfaceHeight;
-  }
+  width = decoded.UsrData.sSystemBuffer.iWidth;
+  height = decoded.UsrData.sSystemBuffer.iHeight;
+  ystride = decoded.UsrData.sSystemBuffer.iStride[0];
+  uvstride = decoded.UsrData.sSystemBuffer.iStride[1];
+
   int len = width * height;
 
   if (len) {
