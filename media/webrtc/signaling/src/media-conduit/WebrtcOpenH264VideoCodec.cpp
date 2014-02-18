@@ -145,7 +145,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   layer->sSliceCfg.sSliceArgument.uiSliceNum = 1;
   layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = 1000;
 
-  rv = encoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
+  rv = encoder_->Initialize(&param);
   if (rv)
     return WEBRTC_VIDEO_CODEC_MEMORY;
 
@@ -334,7 +334,7 @@ int32_t WebrtcOpenH264VideoDecoder::InitDecode(
   param.uiEcActiveFlag = 1; // Error concealment on.
   param.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_DEFAULT;
 
-  long lrv = decoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
+  long lrv = decoder_->Initialize(&param);
   if (lrv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
