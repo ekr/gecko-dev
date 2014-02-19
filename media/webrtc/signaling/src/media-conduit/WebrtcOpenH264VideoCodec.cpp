@@ -145,7 +145,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   layer->sSliceCfg.sSliceArgument.uiSliceNum = 1;
   layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = 1000;
 
-  rv = encoder_->Initialize(&param);
+  rv = encoder_->InitializeExt(&param);
   if (rv)
     return WEBRTC_VIDEO_CODEC_MEMORY;
 
