@@ -197,10 +197,8 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   src.iPicWidth = inputImage->width();
   src.iPicHeight = inputImage->height();
 
-  const SSourcePicture* pics = &src;
-
   PRIntervalTime t0 = PR_IntervalNow();
-  int type = encoder_->EncodeFrame2(&pics, 1, &encoded);
+  int type = encoder_->EncodeFrame(&src, &encoded);
   PRIntervalTime t1 = PR_IntervalNow();
 
   MOZ_MTLOG(ML_DEBUG, "Encoding time: " << PR_IntervalToMilliseconds(
