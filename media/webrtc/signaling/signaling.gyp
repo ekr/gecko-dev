@@ -89,6 +89,9 @@
         './src/media-conduit/VideoConduit.cpp',
         './src/media-conduit/WebrtcFakeVideoCodec.cpp',
         './src/media-conduit/FakeVideoCodec.cpp',
+        './src/media-conduit/WebrtcGmpVideoCodec.cpp',
+        './src/media-conduit/GmpVideoCodec.cpp',
+
         # Common
         './src/common/CommonTypes.h',
         './src/common/csf_common.h',
