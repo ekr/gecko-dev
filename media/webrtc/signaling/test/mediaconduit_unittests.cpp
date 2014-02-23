@@ -15,7 +15,7 @@ using namespace std;
 #include <MediaConduitInterface.h>
 #include "nsIEventTarget.h"
 #include "FakeMediaStreamsImpl.h"
-#include "FakeVideoCodec.h"
+#include "GmpVideoCodec.h"
 
 #define GTEST_HAS_RTTI 0
 #include "gtest/gtest.h"
@@ -406,22 +406,22 @@ public:
 };
 
 /**
- *  Fake Audio and Video External Transport Class
+ *  Gmp Audio and Video External Transport Class
  *  The functions in this class will be invoked by the conduit
  *  when it has RTP/RTCP frame to transmit.
  *  For everty RTP/RTCP frame we receive, we pass it back
  *  to the conduit for eventual decoding and rendering.
  */
-class FakeMediaTransport : public mozilla::TransportInterface
+class GmpMediaTransport : public mozilla::TransportInterface
 {
 public:
-  FakeMediaTransport():numPkts(0),
+  GmpMediaTransport():numPkts(0),
                        mAudio(false),
                        mVideo(false)
   {
   }
 
-  ~FakeMediaTransport()
+  ~GmpMediaTransport()
   {
   }
 
@@ -509,7 +509,7 @@ class TransportConduitTest : public ::testing::Test
     if( !mAudioSession2 )
       ASSERT_NE(mAudioSession2, (void*)nullptr);
 
-    FakeMediaTransport* xport = new FakeMediaTransport();
+    GmpMediaTransport* xport = new GmpMediaTransport();
     ASSERT_NE(xport, (void*)nullptr);
     xport->SetAudioSession(mAudioSession, mAudioSession2);
     mAudioTransport = xport;
@@ -569,13 +569,13 @@ class TransportConduitTest : public ::testing::Test
       ASSERT_NE(mVideoSession2,(void*)nullptr);
 
     if (!send_vp8) {
-      SetFakeCodecs();
+      SetGmpCodecs();
     }
 
     mVideoRenderer = new DummyVideoTarget();
     ASSERT_NE(mVideoRenderer, (void*)nullptr);
 
-    FakeMediaTransport* xport = new FakeMediaTransport();
+    GmpMediaTransport* xport = new GmpMediaTransport();
     ASSERT_NE(xport, (void*)nullptr);
     xport->SetVideoSession(mVideoSession,mVideoSession2);
     mVideoTransport = xport;
@@ -881,9 +881,9 @@ class TransportConduitTest : public ::testing::Test
     cerr << endl;
  }
 
-  void SetFakeCodecs() {
-    mExternalEncoder = mozilla::FakeVideoCodec::CreateEncoder();
-    mExternalDecoder = mozilla::FakeVideoCodec::CreateDecoder();
+  void SetGmpCodecs() {
+    mExternalEncoder = mozilla::GmpVideoCodec::CreateEncoder();
+    mExternalDecoder = mozilla::GmpVideoCodec::CreateDecoder();
 
     mVideoSession->SetExternalSendCodec(124, mExternalEncoder);
     mVideoSession2->SetExternalRecvCodec(124, mExternalDecoder);

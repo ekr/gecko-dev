@@ -2,20 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "WebrtcFakeVideoCodec.h"
-#include "FakeVideoCodec.h"
+#include "WebrtcGmpVideoCodec.h"
+#include "GmpVideoCodec.h"
 
 namespace mozilla {
 
-VideoEncoder* FakeVideoCodec::CreateEncoder() {
-  WebrtcFakeVideoEncoder *enc =
-      new WebrtcFakeVideoEncoder();
+VideoEncoder* GmpVideoCodec::CreateEncoder() {
+  WebrtcGmpVideoEncoder *enc =
+      new WebrtcGmpVideoEncoder();
   return enc;
 }
 
-VideoDecoder* FakeVideoCodec::CreateDecoder() {
-  WebrtcFakeVideoDecoder *dec =
-      new WebrtcFakeVideoDecoder();
+VideoDecoder* GmpVideoCodec::CreateDecoder() {
+  WebrtcGmpVideoDecoder *dec =
+      new WebrtcGmpVideoDecoder();
   return dec;
 }
 
