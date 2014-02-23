@@ -14,6 +14,9 @@
  */
 
 
+#ifndef WEBRTCFAKEVIDEOCODEC_H_
+#define WEBRTCFAKEVIDEOCODEC_H_
+
 #include <queue>
 
 #include "nsThreadUtils.h"
@@ -106,3 +109,5 @@ class WebrtcFakeVideoDecoder : public WebrtcVideoDecoder {
 };
 
 }
+
+#endif
