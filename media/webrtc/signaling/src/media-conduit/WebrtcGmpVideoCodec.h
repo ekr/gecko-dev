@@ -14,8 +14,8 @@
  */
 
 
-#ifndef WEBRTCFAKEVIDEOCODEC_H_
-#define WEBRTCFAKEVIDEOCODEC_H_
+#ifndef WEBRTCGMPVIDEOCODEC_H_
+#define WEBRTCGMPVIDEOCODEC_H_
 
 #include <queue>
 
@@ -29,18 +29,11 @@
 
 namespace mozilla {
 
-struct EncodedFrame {
-  uint32_t width_;
-  uint32_t height_;
-  uint8_t value_;
-  uint32_t timestamp_;
-};
-
-class WebrtcFakeVideoEncoder : public WebrtcVideoEncoder {
+class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder {
  public:
-  WebrtcFakeVideoEncoder();
+  WebrtcGmpVideoEncoder();
 
-  virtual ~WebrtcFakeVideoEncoder() {
+  virtual ~WebrtcGmpVideoEncoder() {
   }
 
   // Implement VideoEncoder interface.
@@ -64,23 +57,14 @@ class WebrtcFakeVideoEncoder : public WebrtcVideoEncoder {
                                  uint32_t frameRate);
 
  private:
-  void EmitFrames();
-  void EmitFrame(EncodedFrame *frame);
-
-  nsCOMPtr<nsIThread> thread_;
-  std::queue<EncodedFrame> frames_;
-  uint32_t max_payload_size_;
-  uint32_t timestamp_;
-  webrtc::EncodedImageCallback* callback_;
-  mozilla::Mutex mutex_;
 };
 
 
-class WebrtcFakeVideoDecoder : public WebrtcVideoDecoder {
+class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder {
  public:
-  WebrtcFakeVideoDecoder();
+  WebrtcGmpVideoDecoder();
 
-  virtual ~WebrtcFakeVideoDecoder() {
+  virtual ~WebrtcGmpVideoDecoder() {
   }
 
   // Implement VideoDecoder interface.
@@ -101,11 +85,6 @@ class WebrtcFakeVideoDecoder : public WebrtcVideoDecoder {
 
  private:
   void RunCallback();
-
-  nsCOMPtr<nsIThread> thread_;
-  webrtc::DecodedImageCallback* callback_;
-  webrtc::I420VideoFrame decoded_image_;
-  mozilla::Mutex mutex_;
 };
 
 }

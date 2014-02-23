@@ -11,7 +11,7 @@
 #include "CSFVideoTermination.h"
 #include "MediaConduitErrors.h"
 #include "MediaConduitInterface.h"
-#include "OpenH264VideoCodec.h"
+#include "GmpVideoCodec.h"
 #include "MediaPipeline.h"
 #include "VcmSIPCCBinding.h"
 #include "csf_common.h"
@@ -2164,10 +2164,10 @@ static int vcmEnsureExternalCodec(
   if (config->mName == "I420") {
     if (send) {
       conduit->SetExternalSendCodec(config->mType,
-                                    mozilla::OpenH264VideoCodec::CreateEncoder());
+                                    mozilla::GmpVideoCodec::CreateEncoder());
     } else {
       conduit->SetExternalRecvCodec(config->mType,
-                                    mozilla::OpenH264VideoCodec::CreateDecoder());
+                                    mozilla::GmpVideoCodec::CreateDecoder());
     }
   }
 
