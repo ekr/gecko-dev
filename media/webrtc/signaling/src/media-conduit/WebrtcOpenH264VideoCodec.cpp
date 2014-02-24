@@ -136,7 +136,6 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
 
   layer->iVideoWidth = codecSettings->width;
   layer->iVideoHeight = codecSettings->height;
-  layer->iQualityLayerNum = 1;
   layer->iSpatialBitrate = param.iTargetBitrate;
   layer->fFrameRate = param.fMaxFrameRate;
 
