@@ -27,9 +27,18 @@
 #include "VideoConduit.h"
 #include "modules/video_coding/codecs/interface/video_codec_interface.h"
 
+#include "gmp-video-host.h"
+#include "gmp-video-encode.h"
+#include "gmp-video-decode.h"
+#include "gmp-video-frame-i420.h"
+#include "gmp-video-frame-encoded.h"
+
+#include "WebrtcGmpVideoCodec.h"
+
 namespace mozilla {
 
-class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder {
+class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder,
+                              public GMPEncoderCallback {
  public:
   WebrtcGmpVideoEncoder();
 
@@ -56,7 +65,13 @@ class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder {
   virtual int32_t SetRates(uint32_t newBitRate,
                                  uint32_t frameRate);
 
+  // GMPEncoderCallback virtual functions.
+  virtual void Encoded(GMPVideoEncodedFrame& aEncodedFrame,
+                         const GMPCodecSpecificInfo& aCodecSpecificInfo) {}
+
  private:
+  GMPVideoEncoder* gmp_;
+  GMPVideoHost* host_;
 };
 
 
@@ -85,6 +100,9 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder {
 
  private:
   void RunCallback();
+
+  GMPVideoDecoder* gmp_;
+  GMPVideoHost* host_;
 };
 
 }
