@@ -54,7 +54,6 @@ public:
 class GMPVideoDecoder
 {
 public:
-  // aCallback: Subclass should retain reference to it until DecodingComplete
   //            is called. Do not attempt to delete it, host retains ownership.
   virtual GMPVideoErr InitDecode(const GMPVideoCodec& aCodecSettings,
                                  GMPDecoderCallback* aCallback,

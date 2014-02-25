@@ -51,7 +51,7 @@ public:
   virtual ~GMPThread() {}
 
   virtual void Post(GMPTask* task) = 0;
-  
+
   virtual void Join() = 0;
 };
 
