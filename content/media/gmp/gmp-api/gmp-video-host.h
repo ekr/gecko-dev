@@ -39,9 +39,12 @@
 #include "gmp-video-frame-encoded.h"
 #include "gmp-video-codec.h"
 
+
 class GMPVideoHost
 {
 public:
+  virtual ~GMPVideoHost() {}
+
   // Construct various video API objects. Host does not retain reference,
   // caller is owner and responsible for deleting.
   virtual GMPVideoErr CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFrame) = 0;
