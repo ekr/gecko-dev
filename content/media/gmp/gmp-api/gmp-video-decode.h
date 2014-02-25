@@ -51,6 +51,8 @@ public:
 class GMPVideoDecoder
 {
 public:
+  virtual ~GMPVideoDecoder() {}
+
   virtual GMPVideoErr InitDecode(const GMPVideoCodec& aCodecSettings,
                                  GMPDecoderCallback* aCallback,
                                  int32_t aCoreCount) = 0;

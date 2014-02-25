@@ -48,6 +48,8 @@ public:
 class GMPVideoEncoder
 {
 public:
+  virtual ~GMPVideoEncoder() {}
+
   // Initialize the encoder with the information from the VideoCodec.
   //
   // Input:
