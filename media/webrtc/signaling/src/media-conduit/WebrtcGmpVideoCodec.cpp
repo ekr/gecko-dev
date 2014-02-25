@@ -13,6 +13,15 @@
 #include "video_engine/include/vie_external_codec.h"
 
 #include "runnable_utils.h"
+
+#include "mozIGeckoMediaPluginService.h"
+#include "nsContentCID.h"
+#include "nsServiceManagerUtils.h"
+
+#include "gmp-video-host.h"
+#include "gmp-video-frame-i420.h"
+#include "gmp-video-frame-encoded.h"
+
 #include "WebrtcGmpVideoCodec.h"
 
 namespace mozilla {
@@ -25,6 +34,44 @@ int32_t WebrtcGmpVideoEncoder::InitEncode(
     const webrtc::VideoCodec* codecSettings,
     int32_t numberOfCores,
     uint32_t maxPayloadSize) {
+
+  nsCOMPtr<mozIGeckoMediaPluginService> mps =
+      do_GetService("@mozilla.org/gecko-media-plugin-service;1");
+
+  if (!mps) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  GMPVideoHost* host = nullptr;
+  GMPVideoEncoder* gmp = nullptr;
+
+  nsresult rv = mps->GetGMPVideoEncoderVP8(&host, &gmp);
+  if (NS_FAILED(rv))
+    return WEBRTC_VIDEO_CODEC_ERROR;
+
+  gmp_ = gmp;
+  host_ = host;
+
+  if (!gmp)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  if (!host)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+
+  // TODO(ekr@rtfm.com): transfer settings from codecSettings to codec.
+  GMPVideoCodec codec;
+  memset(&codec, 0, sizeof(codec));
+  
+  codec.mWidth = codecSettings->width;
+  codec.mHeight = codecSettings->height;
+  codec.mStartBitrate = codecSettings->startBitrate;
+  codec.mMaxFramerate = codecSettings->maxFramerate;
+    
+  GMPVideoErr err = gmp_->InitEncode(codec, this, 1, 1);
+  if (err != GMPVideoNoErr) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+    
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
