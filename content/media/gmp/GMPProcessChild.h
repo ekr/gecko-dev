@@ -9,6 +9,12 @@
 #include "mozilla/ipc/ProcessChild.h"
 #include "GMPChild.h"
 
+#include "nspr.h"
+#include "nsCOMPtr.h"
+#include "nsNetCID.h"
+#include "nsXPCOMGlue.h"
+#include "nsXPCOM.h"
+
 namespace mozilla {
 namespace gmp {
 
@@ -29,6 +35,7 @@ protected:
   }
 
 private:
+  nsIServiceManager* mServMgr;
   GMPChild mPlugin;
 
   DISALLOW_COPY_AND_ASSIGN(GMPProcessChild);
