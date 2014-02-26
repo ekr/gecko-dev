@@ -71,7 +71,6 @@ int32_t WebrtcGmpVideoEncoder::InitEncode(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-    
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -80,6 +79,42 @@ int32_t WebrtcGmpVideoEncoder::Encode(
     const webrtc::I420VideoFrame& inputImage,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
+  GMPVideoFrame* ftmp = nullptr;
+
+  // Translate the image.
+  GMPVideoErr err = host_->CreateFrame(kGMPI420VideoFrame, &ftmp);
+  if (err != GMPVideoNoErr) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+  GMPVideoi420Frame* frame = static_cast<GMPVideoi420Frame*>(ftmp);
+
+  err = frame->CreateFrame(inputImage.allocated_size(webrtc::kYPlane),
+                           inputImage.buffer(webrtc::kYPlane),
+                           inputImage.allocated_size(webrtc::kUPlane),
+                           inputImage.buffer(webrtc::kUPlane),
+                           inputImage.allocated_size(webrtc::kVPlane),
+                           inputImage.buffer(webrtc::kVPlane),
+                           inputImage.width_, inputImage.height,
+                           inputImage.stride(webrtc::kYPlane),
+                           inputImage.stride(webrtc::kUPlane),
+                           inputImage.stride(webrtc::kVPlane));
+  if (err != GMPVideoNoErr) {
+    return err;
+  }
+  frame->SetTimestamp(inputImage.timestamp_);
+  frame->SetRenderTime_ms(inputImage.render_time_ms_);
+
+  // Translate the codecSpecificInfo.
+  
+  err = gmp_->Encode(*frame, 
+  
+                           
+
+    
+  
+
+    
+  host_->
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
