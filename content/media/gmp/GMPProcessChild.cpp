@@ -17,12 +17,21 @@ namespace mozilla {
 namespace gmp {
 
 GMPProcessChild::GMPProcessChild(ProcessHandle parentHandle)
-: ProcessChild(parentHandle)
+  : ProcessChild(parentHandle)
 {
+  // TODO(josh@mozilla.com): check for error?
+  nsresult rv = NS_InitXPCOM2(&mServMgr, nullptr, nullptr);
+  if (NS_FAILED(rv))
+    mServMgr = nullptr;
 }
 
 GMPProcessChild::~GMPProcessChild()
 {
+  if (mServMgr)
+  {
+    NS_RELEASE(mServMgr);
+    NS_ShutdownXPCOM(nullptr);
+  }
 }
 
 bool

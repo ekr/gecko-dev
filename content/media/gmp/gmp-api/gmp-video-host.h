@@ -36,6 +36,29 @@
 #include "gmp-video-frame-encoded.h"
 #include "gmp-video-codec.h"
 
+class GMPTask {
+public:
+  virtual ~GMPTask() {}
+
+  virtual void Run() = 0;
+};
+
+class GMPThread {
+public:
+  virtual ~GMPThread() {}
+
+  virtual void Post(GMPTask* task) = 0;
+  
+  virtual void Join() = 0;
+};
+
+class GMPMutex {
+public:
+  virtual ~GMPMutex() {}
+
+  virtual void Acquire() = 0;
+  virtual void Release() = 0;
+};
 
 class GMPVideoHost
 {
@@ -47,6 +70,8 @@ public:
   virtual GMPVideoErr CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFrame) = 0;
   virtual GMPVideoErr CreatePlane(GMPPlane** aPlane) = 0;
   virtual GMPVideoErr CreateEncodedFrame(GMPVideoEncodedFrame** aFrame) = 0;
+  virtual GMPVideoErr CreateThread(GMPThread **thread) = 0;
+  virtual GMPVideoErr CreateMutex(GMPMutex** mutex) = 0;
 };
 
 #endif // GMP_VIDEO_HOST_h_
