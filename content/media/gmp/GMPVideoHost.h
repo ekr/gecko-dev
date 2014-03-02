@@ -23,10 +23,13 @@ class GMPVideoEncodedFrameImpl;
 class GMPThreadImpl : public GMPThread {
 public:
   GMPThreadImpl() : mThread(nullptr) {}
+  GMPThreadImpl(const nsCOMPtr<nsIThread>& thread) : mThread(thread) {}
+
   virtual ~GMPThreadImpl();
 
   static GMPThreadImpl* Create();
   virtual void Post(GMPTask* task) MOZ_OVERRIDE;
+  virtual void Run(GMPTask* task) MOZ_OVERRIDE;
 
   virtual void Join() MOZ_OVERRIDE;
 
@@ -66,6 +69,7 @@ public:
   virtual GMPVideoErr CreatePlane(GMPPlane** aPlane) MOZ_OVERRIDE;
   virtual GMPVideoErr CreateEncodedFrame(GMPVideoEncodedFrame** aFrame) MOZ_OVERRIDE;
   virtual GMPVideoErr CreateThread(GMPThread **thread) MOZ_OVERRIDE;
+  virtual GMPVideoErr GetThread(GMPThread **thread) MOZ_OVERRIDE;
   virtual GMPVideoErr CreateMutex(GMPMutex** mutex) MOZ_OVERRIDE;
 
 
