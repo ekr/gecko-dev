@@ -196,7 +196,6 @@ GMPVideoEncoderParent::RecvEncoded(const GMPVideoEncodedFrameImpl& aEncodedFrame
   }
 
   f->ReceiveShmem(aEncodedFrameBuffer);
-
   mObserver->Encoded(f, aCodecSpecificInfo);
 
   f->Destroy();

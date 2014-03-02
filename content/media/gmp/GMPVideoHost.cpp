@@ -7,6 +7,7 @@
 #include "GMPVideoHost.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Scoped.h"
+#include "mozilla/SyncRunnable.h"
 #include "nsThreadUtils.h"
 
 
@@ -18,7 +19,7 @@ class GMPRunnable : public nsRunnable {
   GMPRunnable(GMPTask* aTask) : mTask(aTask) {}
   nsresult Run() {
     mTask->Run();
-    
+
     return NS_OK;
   }
 
@@ -36,9 +37,9 @@ GMPThreadImpl*
 GMPThreadImpl::Create()
 {
   ScopedDeletePtr<GMPThreadImpl> impl(new GMPThreadImpl());
-  
+
   nsIThread *thread;
-  
+
   nsresult rv = NS_NewNamedThread("gmp-thread", &thread);
   if (NS_FAILED(rv))
     return nullptr;
@@ -53,7 +54,19 @@ GMPThreadImpl::Post(GMPTask* aTask)
 {
   MOZ_ASSERT(mThread);
 
-  mThread->Dispatch(new GMPRunnable(aTask), NS_DISPATCH_NORMAL);
+//mThread->Dispatch(new GMPRunnable(aTask), NS_DISPATCH_NORMAL);
+ aTask->Run();
+delete aTask;
+}
+
+void
+GMPThreadImpl::Run(GMPTask* aTask)
+{
+  MOZ_ASSERT(mThread);
+  fprintf(stderr, "%s", __FUNCTION__);
+
+  SyncRunnable::DispatchToThread(mThread,
+                                   new GMPRunnable(aTask));
 }
 
 void
@@ -61,10 +74,9 @@ GMPThreadImpl::Join()
 {
   if (mThread)
     mThread->Shutdown();
-  
+
   mThread = nullptr;
 }
- 
 
 void
 GMPMutexImpl::Acquire()
@@ -163,14 +175,28 @@ GMPVideoErr
 GMPVideoHostImpl::CreateThread(GMPThread **thread)
 {
   GMPThread *thr = GMPThreadImpl::Create();
-  
+
   if (!thr)
     return GMPVideoGenericErr;
-  
+
   *thread = thr;
 
   return GMPVideoNoErr;
-}    
+}
+
+GMPVideoErr
+GMPVideoHostImpl::GetThread(GMPThread **thread)
+{
+  nsIThread *thr;
+
+  nsresult rv = NS_GetCurrentThread(&thr);
+  if (NS_FAILED(rv))
+    return GMPVideoGenericErr;
+
+  *thread = new GMPThreadImpl(thr);
+
+  return GMPVideoNoErr;
+}
 
 GMPVideoErr
 GMPVideoHostImpl::CreateMutex(GMPMutex** mutex)

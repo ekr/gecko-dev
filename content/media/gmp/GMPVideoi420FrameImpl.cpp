@@ -171,6 +171,7 @@ GMPVideoi420FrameImpl::CreateFrame(int32_t aSize_y, const uint8_t* aBuffer_y,
   return GMPVideoNoErr;
 }
 
+
 GMPVideoErr
 GMPVideoi420FrameImpl::CopyFrame(const GMPVideoi420Frame& aFrame)
 {

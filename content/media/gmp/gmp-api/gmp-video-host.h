@@ -51,6 +51,7 @@ public:
   virtual ~GMPThread() {}
 
   virtual void Post(GMPTask* task) = 0;
+  virtual void Run(GMPTask* task) = 0;
 
   virtual void Join() = 0;
 };
@@ -74,6 +75,7 @@ public:
   virtual GMPVideoErr CreatePlane(GMPPlane** aPlane) = 0;
   virtual GMPVideoErr CreateEncodedFrame(GMPVideoEncodedFrame** aFrame) = 0;
   virtual GMPVideoErr CreateThread(GMPThread **thread) = 0;
+  virtual GMPVideoErr GetThread(GMPThread **thread) = 0;
   virtual GMPVideoErr CreateMutex(GMPMutex** mutex) = 0;
 };
 
