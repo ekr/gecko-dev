@@ -12,6 +12,7 @@
 #include "gmp-video-codec.h"
 #include "mozilla/ipc/Shmem.h"
 #include "GMPVideoEncodedFrameImpl.h"
+#include <iostream>
 
 namespace IPC {
 
@@ -126,6 +127,7 @@ struct ParamTraits<mozilla::gmp::GMPVideoi420FrameImpl>
         ReadParam(aMsg, aIter, &(aResult->mHeight)) &&
         ReadParam(aMsg, aIter, &(aResult->mTimestamp)) &&
         ReadParam(aMsg, aIter, &(aResult->mRenderTime_ms))) {
+
       return true;
     }
 

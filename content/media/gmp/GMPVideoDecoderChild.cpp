@@ -106,6 +106,7 @@ GMPVideoDecoderChild::RecvDecode(const GMPVideoEncodedFrameImpl& inputFrame,
   frame->CopyFrame(inputFrame);
   frame->ReceiveShmem(aEncodedFrameShmem);
 
+  fprintf(stderr, "%s: width = %d\n", __FUNCTION__, frame->EncodedWidth());
   mVideoDecoder->Decode(*frame, missingFrames, codecSpecificInfo, renderTimeMs);
 
   return true;

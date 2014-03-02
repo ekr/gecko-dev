@@ -94,27 +94,16 @@ int32_t WebrtcGmpVideoEncoder::Encode(
                            inputImage.buffer(webrtc::kUPlane),
                            inputImage.allocated_size(webrtc::kVPlane),
                            inputImage.buffer(webrtc::kVPlane),
-                           inputImage.width_, inputImage.height,
+                           inputImage.width(), inputImage.height(),
                            inputImage.stride(webrtc::kYPlane),
                            inputImage.stride(webrtc::kUPlane),
                            inputImage.stride(webrtc::kVPlane));
   if (err != GMPVideoNoErr) {
     return err;
   }
-  frame->SetTimestamp(inputImage.timestamp_);
-  frame->SetRenderTime_ms(inputImage.render_time_ms_);
+  frame->SetTimestamp(inputImage.timestamp());
+  frame->SetRenderTime_ms(inputImage.render_time_ms());
 
-  // Translate the codecSpecificInfo.
-  
-  err = gmp_->Encode(*frame, 
-  
-                           
-
-    
-  
-
-    
-  host_->
   return WEBRTC_VIDEO_CODEC_OK;
 }
 

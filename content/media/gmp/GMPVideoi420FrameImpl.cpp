@@ -171,10 +171,12 @@ GMPVideoi420FrameImpl::CreateFrame(int32_t aSize_y, const uint8_t* aBuffer_y,
   return GMPVideoNoErr;
 }
 
+
 GMPVideoErr
 GMPVideoi420FrameImpl::CopyFrame(const GMPVideoi420Frame& aFrame)
 {
   auto& f = static_cast<const GMPVideoi420FrameImpl&>(aFrame);
+
   GMPVideoErr err = CreateFrame(f.AllocatedSize(kGMPYPlane),
                                 f.Buffer(kGMPYPlane),
                                 f.AllocatedSize(kGMPUPlane),

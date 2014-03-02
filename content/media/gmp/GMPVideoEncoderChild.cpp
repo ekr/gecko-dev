@@ -77,6 +77,11 @@ GMPVideoEncoderChild::RecvEncode(const GMPVideoi420FrameImpl& aInputFrame,
                                  const GMPCodecSpecificInfo& aCodecSpecificInfo,
                                  const InfallibleTArray<int>& aFrameTypes)
 {
+  // EKR: Gah
+  GMPVideoi420FrameImpl* ifr = (GMPVideoi420FrameImpl*)&aInputFrame;
+
+  ifr->ReceiveShmem(aYShmem, aUShmem, aVShmem);
+
   if (!mVideoEncoder) {
     return false;
   }
@@ -84,8 +89,11 @@ GMPVideoEncoderChild::RecvEncode(const GMPVideoi420FrameImpl& aInputFrame,
   // We need a mutable copy of the decoded frame, into which we can inject
   // the shared memory backing.
   auto frame = new GMPVideoi420FrameImpl();
-  frame->CopyFrame(aInputFrame);
-  frame->ReceiveShmem(aYShmem, aUShmem, aVShmem);
+  GMPVideoErr err;
+  frame->SetHost(&mVideoHost);
+
+  err = frame->CopyFrame(aInputFrame);
+  MOZ_ASSERT(err == GMPVideoNoErr);
 
   //XXXJOSH convert aFrameTypes to std:: array and pass it through
   mVideoEncoder->Encode(*frame, aCodecSpecificInfo, nullptr);
