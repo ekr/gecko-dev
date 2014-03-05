@@ -56,6 +56,33 @@ static int WebrtcFrameTypeToGmpFrameType(webrtc::VideoFrameType in,
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
+static int GmpFrameTypeToWebrtcFrameType(GMPVideoFrameType in,
+                                         webrtc::VideoFrameType *out) {
+  switch(in) {
+    case kGMPKeyFrame:
+      *out = webrtc::kKeyFrame;
+      break;
+      *out = webrtc::kDeltaFrame;
+    case kGMPDeltaFrame:
+      break;
+    case kGMPGoldenFrame:
+      *out = webrtc::kGoldenFrame;
+      break;
+    case kGMPAltRefFrame:
+      *out = webrtc::kAltRefFrame;
+
+      break;
+    case kGMPSkipFrame:
+      *out = webrtc::kSkipFrame;
+      break;
+    default:
+      MOZ_CRASH();
+      return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  return WEBRTC_VIDEO_CODEC_OK;
+}
+
 
 int32_t WebrtcGmpVideoEncoder::InitEncode(
     const webrtc::VideoCodec* codecSettings,
@@ -198,6 +225,8 @@ int32_t WebrtcGmpVideoEncoder::Encode(
 
 int32_t WebrtcGmpVideoEncoder::RegisterEncodeCompleteCallback(
     webrtc::EncodedImageCallback* callback) {
+  callback_ = callback;
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -217,7 +246,23 @@ int32_t WebrtcGmpVideoEncoder::SetRates(uint32_t newBitRate,
 
 // GMPEncoderCallback virtual functions.
 void WebrtcGmpVideoEncoder::Encoded(GMPVideoEncodedFrame& aEncodedFrame,
-                                     const GMPCodecSpecificInfo& aCodecSpecificInfo) {
+                                    const GMPCodecSpecificInfo& aCodecSpecificInfo) {
+  webrtc::EncodedImage image(aEncodedFrame.Buffer(), aEncodedFrame.AllocatedSize(),
+                             aEncodedFrame.Size());
+
+  image._encodedWidth = aEncodedFrame.EncodedWidth();
+  image._encodedHeight = aEncodedFrame.EncodedHeight();
+  image._timeStamp = aEncodedFrame.TimeStamp();
+
+  webrtc::VideoFrameType ft;
+  int32_t ret = GmpFrameTypeToWebrtcFrameType(aEncodedFrame.FrameType(),
+                                              &ft);
+  if (ret != WEBRTC_VIDEO_CODEC_OK)
+    return;
+  image._frameType = ft;
+  image._completeFrame = true;
+
+  callback_->Encoded(image, nullptr, nullptr);
 }
 
 
