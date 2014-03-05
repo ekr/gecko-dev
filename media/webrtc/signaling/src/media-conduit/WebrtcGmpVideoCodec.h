@@ -67,15 +67,28 @@ class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder,
 
   // GMPEncoderCallback virtual functions.
   virtual void Encoded(GMPVideoEncodedFrame& aEncodedFrame,
-                         const GMPCodecSpecificInfo& aCodecSpecificInfo) {}
+		       const GMPCodecSpecificInfo& aCodecSpecificInfo);
+
 
  private:
+  virtual int32_t InitEncode_m(const webrtc::VideoCodec* codecSettings,
+			       int32_t numberOfCores,
+			       uint32_t maxPayloadSize);
+
+  virtual int32_t Encode_m(const webrtc::I420VideoFrame* inputImage,
+      const webrtc::CodecSpecificInfo* codecSpecificInfo,
+      const std::vector<webrtc::VideoFrameType>* frame_types);
+
+  nsIThread* main_thread_;
   GMPVideoEncoder* gmp_;
   GMPVideoHost* host_;
+  webrtc::EncodedImageCallback* callback_;
 };
 
 
-class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder {
+class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder,
+                              public GMPDecoderCallback {
+
  public:
   WebrtcGmpVideoDecoder();
 
@@ -84,7 +97,7 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder {
 
   // Implement VideoDecoder interface.
   virtual int32_t InitDecode(const webrtc::VideoCodec* codecSettings,
-                                   int32_t numberOfCores);
+			     int32_t numberOfCores);
   virtual int32_t Decode(const webrtc::EncodedImage& inputImage,
                                bool missingFrames,
                                const webrtc::RTPFragmentationHeader* fragmentation,
@@ -98,11 +111,36 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder {
 
   virtual int32_t Reset();
 
- private:
-  void RunCallback();
+  virtual void Decoded(GMPVideoi420Frame& aDecodedFrame) {
+    MOZ_CRASH();
+  }
 
+  virtual void ReceivedDecodedReferenceFrame(const uint64_t aPictureId) {
+    MOZ_CRASH();
+  }
+
+  virtual void ReceivedDecodedFrame(const uint64_t aPictureId) {
+    MOZ_CRASH();
+  }
+
+  virtual void InputDataExhausted() {
+    MOZ_CRASH();
+  }
+
+ private:
+  virtual int32_t InitDecode_m(const webrtc::VideoCodec* codecSettings,
+                               int32_t numberOfCores);
+
+  virtual int32_t Decode_m(const webrtc::EncodedImage& inputImage,
+                           bool missingFrames,
+                           const webrtc::RTPFragmentationHeader* fragmentation,
+                           const webrtc::CodecSpecificInfo* codecSpecificInfo,
+                           int64_t renderTimeMs);
+
+  nsIThread* main_thread_;
   GMPVideoDecoder* gmp_;
   GMPVideoHost* host_;
+  webrtc::DecodedImageCallback* callback_;
 };
 
 }

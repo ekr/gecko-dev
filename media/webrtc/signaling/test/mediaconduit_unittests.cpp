@@ -16,10 +16,13 @@ using namespace std;
 #include "nsIEventTarget.h"
 #include "FakeMediaStreamsImpl.h"
 #include "GmpVideoCodec.h"
+#include "nsThreadUtils.h"
+#include "runnable_utils.h"
 
 #define GTEST_HAS_RTTI 0
 #include "gtest/gtest.h"
 #include "gtest_utils.h"
+nsCOMPtr<nsIThread> gThread;
 
 #include "mtransport_test_utils.h"
 MtransportTestUtils *test_utils;
@@ -49,12 +52,24 @@ struct VideoTestStats
 
 VideoTestStats vidStatsGlobal={0,0,0};
 
-
 /**
  * A Dummy Video Conduit Tester.
  * The test-case inserts a 640*480 grey imagerevery 33 milliseconds
  * to the video-conduit for encoding and transporting.
  */
+
+static bool SetupGlobalThread() {
+  if (!gThread) {
+    nsIThread *thread;
+
+    nsresult rv = NS_NewNamedThread("gtest",&thread);
+    if (NS_FAILED(rv))
+      return false;
+
+    gThread = thread;
+  }
+  return true;
+}
 
 class VideoSendAndReceive
 {
@@ -406,22 +421,22 @@ public:
 };
 
 /**
- *  Gmp Audio and Video External Transport Class
+ *  Webrtc Audio and Video External Transport Class
  *  The functions in this class will be invoked by the conduit
  *  when it has RTP/RTCP frame to transmit.
  *  For everty RTP/RTCP frame we receive, we pass it back
  *  to the conduit for eventual decoding and rendering.
  */
-class GmpMediaTransport : public mozilla::TransportInterface
+class WebrtcMediaTransport : public mozilla::TransportInterface
 {
 public:
-  GmpMediaTransport():numPkts(0),
+  WebrtcMediaTransport():numPkts(0),
                        mAudio(false),
                        mVideo(false)
   {
   }
 
-  ~GmpMediaTransport()
+  ~WebrtcMediaTransport()
   {
   }
 
@@ -485,6 +500,7 @@ namespace {
 class TransportConduitTest : public ::testing::Test
 {
  public:
+
   TransportConduitTest()
   {
     //input and output file names
@@ -509,7 +525,7 @@ class TransportConduitTest : public ::testing::Test
     if( !mAudioSession2 )
       ASSERT_NE(mAudioSession2, (void*)nullptr);
 
-    GmpMediaTransport* xport = new GmpMediaTransport();
+    WebrtcMediaTransport* xport = new WebrtcMediaTransport();
     ASSERT_NE(xport, (void*)nullptr);
     xport->SetAudioSession(mAudioSession, mAudioSession2);
     mAudioTransport = xport;
@@ -575,7 +591,7 @@ class TransportConduitTest : public ::testing::Test
     mVideoRenderer = new DummyVideoTarget();
     ASSERT_NE(mVideoRenderer, (void*)nullptr);
 
-    GmpMediaTransport* xport = new GmpMediaTransport();
+    WebrtcMediaTransport* xport = new WebrtcMediaTransport();
     ASSERT_NE(xport, (void*)nullptr);
     xport->SetVideoSession(mVideoSession,mVideoSession2);
     mVideoTransport = xport;
@@ -617,6 +633,7 @@ class TransportConduitTest : public ::testing::Test
     videoTester.Init(mVideoSession);
     videoTester.GenerateAndReadSamples();
     PR_Sleep(PR_SecondsToInterval(2));
+
     cerr << "   **************************************************" << endl;
     cerr << "    Done With The Testing  " << endl;
     cerr << "    VIDEO TEST STATS  "  << endl;
@@ -937,16 +954,41 @@ TEST_F(TransportConduitTest, TestVideoConduitMaxFs) {
 
 }  // end namespace
 
+static int test_result;
+bool test_finished = false;
+
+static void run_tests() {
+  test_result = RUN_ALL_TESTS();
+  test_finished = true;
+}
+
 int main(int argc, char **argv)
 {
   // This test can cause intermittent oranges on the builders
   CHECK_ENVIRONMENT_FLAG("MOZ_WEBRTC_MEDIACONDUIT_TESTS")
 
   test_utils = new MtransportTestUtils();
+  SetupGlobalThread();
+
   ::testing::InitGoogleTest(&argc, argv);
-  int rv = RUN_ALL_TESTS();
+
+  RUN_ON_THREAD(gThread,
+                mozilla::WrapRunnableNM(run_tests),
+                NS_DISPATCH_NORMAL);
+
+  nsIThread* thr;
+  NS_GetCurrentThread(&thr);
+  for (;;) {
+    NS_ProcessPendingEvents(thr);
+    PR_Sleep(10);
+
+    if (test_finished)
+      break;
+  }
+
   delete test_utils;
-  return rv;
+  return test_result;
 }
+
 
 
