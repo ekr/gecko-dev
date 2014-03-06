@@ -364,7 +364,7 @@ int32_t WebrtcGmpVideoDecoder::Decode_m(
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  err = frame->CreateEmptyFrame(inputImage._size);
+  err = frame->CreateEmptyFrame(inputImage._length);
   if (err != GMPVideoNoErr) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
