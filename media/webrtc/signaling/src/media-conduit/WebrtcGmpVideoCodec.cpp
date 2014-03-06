@@ -118,7 +118,7 @@ int32_t WebrtcGmpVideoEncoder::InitEncode_m(
 
   GMPVideoHost* host = nullptr;
   GMPVideoEncoder* gmp = nullptr;
-  
+
   nsresult rv = mps->GetGMPVideoEncoderVP8(&host, &gmp);
   if (NS_FAILED(rv))
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -139,13 +139,12 @@ int32_t WebrtcGmpVideoEncoder::InitEncode_m(
   codec.mHeight = codecSettings->height;
   codec.mStartBitrate = codecSettings->startBitrate;
   codec.mMaxFramerate = codecSettings->maxFramerate;
-    
+
   GMPVideoErr err = gmp_->InitEncode(codec, this, 1, 1);
   if (err != GMPVideoNoErr) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -273,12 +272,58 @@ WebrtcGmpVideoDecoder::WebrtcGmpVideoDecoder() {
 int32_t WebrtcGmpVideoDecoder::InitDecode(
     const webrtc::VideoCodec* codecSettings,
     int32_t numberOfCores) {
+  nsresult rv = NS_GetMainThread(&main_thread_);
+  if (NS_FAILED(rv))
+    return WEBRTC_VIDEO_CODEC_ERROR;
+
+  int32_t ret;
+  RUN_ON_THREAD(main_thread_,
+                WrapRunnableRet(this,
+                                &WebrtcGmpVideoDecoder::InitDecode_m,
+                                codecSettings,
+                                numberOfCores,
+                                &ret),
+                NS_DISPATCH_SYNC);
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcGmpVideoDecoder::InitDecode_m(
     const webrtc::VideoCodec* codecSettings,
     int32_t numberOfCores) {
+  std::cerr << __FUNCTION__ << std::endl;
+  nsCOMPtr<mozIGeckoMediaPluginService> mps =
+      do_GetService("@mozilla.org/gecko-media-plugin-service;1");
+
+  if (!mps) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  GMPVideoHost* host = nullptr;
+  GMPVideoDecoder* gmp = nullptr;
+
+  nsresult rv = mps->GetGMPVideoDecoderVP8(&host, &gmp);
+  if (NS_FAILED(rv))
+    return WEBRTC_VIDEO_CODEC_ERROR;
+
+  gmp_ = gmp;
+  host_ = host;
+
+  if (!gmp)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  if (!host)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+
+  // TODO(ekr@rtfm.com): transfer settings from codecSettings to codec.
+  GMPVideoCodec codec;
+  memset(&codec, 0, sizeof(codec));
+
+  GMPVideoErr err = gmp_->InitDecode(codec, this, 1);
+  if (err != GMPVideoNoErr) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  std::cerr << "OK: " << __FUNCTION__ << std::endl;
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -289,6 +334,19 @@ int32_t WebrtcGmpVideoDecoder::Decode(
     const webrtc::CodecSpecificInfo*
     codecSpecificInfo,
     int64_t renderTimeMs) {
+  int32_t ret;
+
+  RUN_ON_THREAD(main_thread_,
+                WrapRunnableRet(this,
+                                &WebrtcGmpVideoDecoder::Decode_m,
+                                inputImage,
+                                missingFrames,
+                                fragmentation,
+                                codecSpecificInfo,
+                                renderTimeMs,
+                                &ret),
+                NS_DISPATCH_SYNC);
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -299,11 +357,44 @@ int32_t WebrtcGmpVideoDecoder::Decode_m(
     const webrtc::CodecSpecificInfo*
     codecSpecificInfo,
     int64_t renderTimeMs) {
+  GMPVideoEncodedFrame* frame = nullptr;
+
+  GMPVideoErr err = host_->CreateEncodedFrame(&frame);
+  if (err != GMPVideoNoErr) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+
+  err = frame->CreateEmptyFrame(inputImage._size);
+  if (err != GMPVideoNoErr) {
+    return WEBRTC_VIDEO_CODEC_ERROR;
+  }
+  memcpy(frame->Buffer(), inputImage._buffer, frame->Size());
+
+  frame->SetEncodedWidth(inputImage._encodedWidth);
+  frame->SetEncodedHeight(inputImage._encodedHeight);
+  frame->SetTimeStamp(inputImage._timeStamp);
+  frame->SetCompleteFrame(inputImage._completeFrame);
+
+  GMPVideoFrameType ft;
+  int32_t ret = WebrtcFrameTypeToGmpFrameType(inputImage._frameType, &ft);
+  if (ret != WEBRTC_VIDEO_CODEC_OK)
+    return ret;
+
+  // TODO(ekr@rtfm.com): Fill in
+  GMPCodecSpecificInfo info;
+  memset(&info, 0, sizeof(info));
+
+  err = gmp_->Decode(*frame, missingFrames, info, renderTimeMs);
+  if (err != GMPVideoNoErr)
+    return WEBRTC_VIDEO_CODEC_ERROR;
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
 int32_t WebrtcGmpVideoDecoder::RegisterDecodeCompleteCallback(
     webrtc::DecodedImageCallback* callback) {
+  callback_ = callback;
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
