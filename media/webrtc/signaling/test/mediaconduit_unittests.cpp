@@ -442,8 +442,6 @@ public:
 
   virtual nsresult SendRtpPacket(const void* data, int len)
   {
-    std::cerr << "Sending RTP packet of length " << len << std::endl;
-
     ++numPkts;
     if(mAudio)
     {
