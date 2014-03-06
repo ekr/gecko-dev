@@ -101,6 +101,11 @@ GMPVideoDecoderChild::RecvDecode(const GMPVideoEncodedFrameImpl& inputFrame,
     return false;
   }
 
+  GMPVideoEncodedFrameImpl* tmp =
+    (GMPVideoEncodedFrameImpl*)&inputFrame;
+
+  fprintf(stderr, "%s: in length = %d\n", __FUNCTION__, tmp->Size());
+
   // We need a mutable copy of the decoded frame, into which we can inject
   // the shared memory backing.
   auto frame = new GMPVideoEncodedFrameImpl();
