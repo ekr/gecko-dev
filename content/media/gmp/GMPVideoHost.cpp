@@ -63,7 +63,6 @@ void
 GMPThreadImpl::Run(GMPTask* aTask)
 {
   MOZ_ASSERT(mThread);
-  fprintf(stderr, "%s", __FUNCTION__);
 
   SyncRunnable::DispatchToThread(mThread,
                                    new GMPRunnable(aTask));
