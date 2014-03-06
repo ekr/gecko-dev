@@ -161,6 +161,11 @@ GMPVideoDecoderParent::RecvDecoded(const GMPVideoi420FrameImpl& aDecodedFrame,
     return false;
   }
 
+  // EKR: Gah
+  GMPVideoi420FrameImpl* ifr = (GMPVideoi420FrameImpl*)&aDecodedFrame;
+
+  ifr->ReceiveShmem(aYShmem, aUShmem, aVShmem);
+
   // We need a mutable copy of the decoded frame, into which we can
   // inject the shared memory backing.
   auto f = new GMPVideoi420FrameImpl();
@@ -168,8 +173,8 @@ GMPVideoDecoderParent::RecvDecoded(const GMPVideoi420FrameImpl& aDecodedFrame,
     return false;
   }
 
+  f->SetHost(&mVideoHost);
   f->CopyFrame(aDecodedFrame);
-  f->ReceiveShmem(aYShmem, aUShmem, aVShmem);
 
   mObserver->Decoded(*f);
 
