@@ -111,9 +111,8 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder,
 
   virtual int32_t Reset();
 
-  virtual void Decoded(GMPVideoi420Frame& aDecodedFrame) {
-    MOZ_CRASH();
-  }
+  virtual void Decoded(GMPVideoi420Frame& aDecodedFrame);
+
 
   virtual void ReceivedDecodedReferenceFrame(const uint64_t aPictureId) {
     MOZ_CRASH();

@@ -174,7 +174,6 @@ GMPVideoDecoderParent::RecvDecoded(const GMPVideoi420FrameImpl& aDecodedFrame,
   }
 
   f->ReceiveShmem(aYShmem, aUShmem, aVShmem);
-
   mObserver->Decoded(*f);
 
   f->Destroy();
