@@ -115,6 +115,8 @@ GMPVideoDecoderChild::RecvDecode(const GMPVideoEncodedFrameImpl& inputFrame,
 
   frame->SetHost(&mVideoHost);
 
+  frame->SetHost(&mVideoHost);
+
   GMPVideoErr err = frame->CopyFrame(inputFrame);
   if (err != GMPVideoNoErr) {
     return false;
