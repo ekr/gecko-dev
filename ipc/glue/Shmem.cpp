@@ -396,8 +396,6 @@ Shmem::Alloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
   if (aProtect)
     Protect(segment);
 
-  fprintf(stderr, "%p ALLOCATED %d\n", segment, aNBytes);
-
   return segment;
 }
 
@@ -474,7 +472,6 @@ Shmem::Dealloc(IHadBetterBeIPDLCodeCallingThis_OtherwiseIAmADoodyhead,
   GetSections(aSegment, &header, &frontSentinel, &data, &backSentinel);
 
   aSegment->Protect(frontSentinel, pageSize, RightsWrite | RightsRead);
-  fprintf(stderr, "%p DEALLOC %d\n", aSegment, header->mSize);
 
   memset(header->mMagic, 0, sizeof(sMagic));
   header->mSize = 0;
