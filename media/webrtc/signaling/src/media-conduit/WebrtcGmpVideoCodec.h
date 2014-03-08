@@ -66,7 +66,7 @@ class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder,
                                  uint32_t frameRate);
 
   // GMPEncoderCallback virtual functions.
-  virtual void Encoded(GMPVideoEncodedFrame& aEncodedFrame,
+  virtual void Encoded(GMPVideoEncodedFrame* aEncodedFrame,
 		       const GMPCodecSpecificInfo& aCodecSpecificInfo);
 
 
@@ -99,11 +99,11 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder,
   virtual int32_t InitDecode(const webrtc::VideoCodec* codecSettings,
 			     int32_t numberOfCores);
   virtual int32_t Decode(const webrtc::EncodedImage& inputImage,
-                               bool missingFrames,
-                               const webrtc::RTPFragmentationHeader* fragmentation,
-                               const webrtc::CodecSpecificInfo*
-                               codecSpecificInfo = NULL,
-                               int64_t renderTimeMs = -1);
+			 bool missingFrames,
+			 const webrtc::RTPFragmentationHeader* fragmentation,
+			 const webrtc::CodecSpecificInfo*
+			 codecSpecificInfo = NULL,
+			 int64_t renderTimeMs = -1);
   virtual int32_t RegisterDecodeCompleteCallback(
       webrtc::DecodedImageCallback* callback);
 
