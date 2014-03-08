@@ -20,35 +20,6 @@ class GMPSharedMemManager;
 class GMPPlaneImpl;
 class GMPVideoEncodedFrameImpl;
 
-class GMPThreadImpl : public GMPThread {
-public:
-  GMPThreadImpl() : mThread(nullptr) {}
-  GMPThreadImpl(const nsCOMPtr<nsIThread>& thread) : mThread(thread) {}
-
-  virtual ~GMPThreadImpl();
-
-  static GMPThreadImpl* Create();
-  virtual void Post(GMPTask* task) MOZ_OVERRIDE;
-  virtual void Run(GMPTask* task) MOZ_OVERRIDE;
-
-  virtual void Join() MOZ_OVERRIDE;
-
-private:
-  nsCOMPtr<nsIThread> mThread;
-};
-
-class GMPMutexImpl : public GMPMutex {
-public:
-  GMPMutexImpl() : mMutex("gmp-mutex") {}
-
-  virtual void Acquire() MOZ_OVERRIDE;
-  virtual void Release() MOZ_OVERRIDE;
-
-private:
-  Mutex mMutex;
-};
-
-                        
 class GMPVideoHostImpl : public GMPVideoHost
 {
 public:
@@ -68,10 +39,6 @@ public:
   virtual GMPVideoErr CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFrame) MOZ_OVERRIDE;
   virtual GMPVideoErr CreatePlane(GMPPlane** aPlane) MOZ_OVERRIDE;
   virtual GMPVideoErr CreateEncodedFrame(GMPVideoEncodedFrame** aFrame) MOZ_OVERRIDE;
-  virtual GMPVideoErr CreateThread(GMPThread **thread) MOZ_OVERRIDE;
-  virtual GMPVideoErr GetThread(GMPThread **thread) MOZ_OVERRIDE;
-  virtual GMPVideoErr CreateMutex(GMPMutex** mutex) MOZ_OVERRIDE;
-
 
 private:
   // All shared memory allocations have to be made by an IPDL actor.

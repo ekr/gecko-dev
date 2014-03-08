@@ -111,7 +111,7 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder,
 
   virtual int32_t Reset();
 
-  virtual void Decoded(GMPVideoi420Frame& aDecodedFrame);
+  virtual void Decoded(GMPVideoi420Frame* aDecodedFrame);
 
 
   virtual void ReceivedDecodedReferenceFrame(const uint64_t aPictureId) {

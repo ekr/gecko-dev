@@ -383,9 +383,7 @@ int32_t WebrtcGmpVideoDecoder::Decode_m(
   GMPCodecSpecificInfo info;
   memset(&info, 0, sizeof(info));
 
-  err = gmp_->Decode(*frame, missingFrames, info, renderTimeMs);
-
-  frame->Destroy();
+  err = gmp_->Decode(frame, missingFrames, info, renderTimeMs);
 
   if (err != GMPVideoNoErr)
     return WEBRTC_VIDEO_CODEC_ERROR;
@@ -409,23 +407,23 @@ int32_t WebrtcGmpVideoDecoder::Reset() {
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
-void WebrtcGmpVideoDecoder::Decoded(GMPVideoi420Frame& aDecodedFrame) {
+void WebrtcGmpVideoDecoder::Decoded(GMPVideoi420Frame* aDecodedFrame) {
   webrtc::I420VideoFrame image;
-  int ret = image.CreateFrame(aDecodedFrame.AllocatedSize(kGMPYPlane),
-                              aDecodedFrame.Buffer(kGMPYPlane),
-                              aDecodedFrame.AllocatedSize(kGMPUPlane),
-                              aDecodedFrame.Buffer(kGMPUPlane),
-                              aDecodedFrame.AllocatedSize(kGMPVPlane),
-                              aDecodedFrame.Buffer(kGMPVPlane),
-                              aDecodedFrame.Width(),
-                              aDecodedFrame.Height(),
-                              aDecodedFrame.Stride(kGMPYPlane),
-                              aDecodedFrame.Stride(kGMPUPlane),
-                              aDecodedFrame.Stride(kGMPVPlane));
+  int ret = image.CreateFrame(aDecodedFrame->AllocatedSize(kGMPYPlane),
+                              aDecodedFrame->Buffer(kGMPYPlane),
+                              aDecodedFrame->AllocatedSize(kGMPUPlane),
+                              aDecodedFrame->Buffer(kGMPUPlane),
+                              aDecodedFrame->AllocatedSize(kGMPVPlane),
+                              aDecodedFrame->Buffer(kGMPVPlane),
+                              aDecodedFrame->Width(),
+                              aDecodedFrame->Height(),
+                              aDecodedFrame->Stride(kGMPYPlane),
+                              aDecodedFrame->Stride(kGMPUPlane),
+                              aDecodedFrame->Stride(kGMPVPlane));
   if (ret != 0)
     return;
-  image.set_timestamp(aDecodedFrame.Timestamp());
-  image.set_render_time_ms(aDecodedFrame.RenderTime_ms());
+  image.set_timestamp(aDecodedFrame->Timestamp());
+  image.set_render_time_ms(aDecodedFrame->RenderTime_ms());
 
   callback_->Decoded(image);
 }

@@ -14,81 +14,6 @@
 namespace mozilla {
 namespace gmp {
 
-class GMPRunnable : public nsRunnable {
- public:
-  GMPRunnable(GMPTask* aTask) : mTask(aTask) {}
-  nsresult Run() {
-    mTask->Run();
-
-    return NS_OK;
-  }
-
- private:
-  ScopedDeletePtr<GMPTask> mTask;
-};
-
-
-GMPThreadImpl::~GMPThreadImpl()
-{
-  MOZ_ASSERT(!mThread);
-}
-
-GMPThreadImpl*
-GMPThreadImpl::Create()
-{
-  ScopedDeletePtr<GMPThreadImpl> impl(new GMPThreadImpl());
-
-  nsIThread *thread;
-
-  nsresult rv = NS_NewNamedThread("gmp-thread", &thread);
-  if (NS_FAILED(rv))
-    return nullptr;
-
-  impl->mThread = thread;
-
-  return impl.forget();
-}
-
-void
-GMPThreadImpl::Post(GMPTask* aTask)
-{
-  MOZ_ASSERT(mThread);
-
-//mThread->Dispatch(new GMPRunnable(aTask), NS_DISPATCH_NORMAL);
- aTask->Run();
-delete aTask;
-}
-
-void
-GMPThreadImpl::Run(GMPTask* aTask)
-{
-  MOZ_ASSERT(mThread);
-
-  SyncRunnable::DispatchToThread(mThread,
-                                   new GMPRunnable(aTask));
-}
-
-void
-GMPThreadImpl::Join()
-{
-  if (mThread)
-    mThread->Shutdown();
-
-  mThread = nullptr;
-}
-
-void
-GMPMutexImpl::Acquire()
-{
-  mMutex.Lock();
-}
-
-void
-GMPMutexImpl::Release()
-{
-  mMutex.Unlock();
-}
-
 GMPVideoHostImpl::GMPVideoHostImpl(GMPSharedMemManager* aSharedMemMgr)
 : mSharedMemMgr(aSharedMemMgr)
 {
@@ -166,41 +91,6 @@ GMPVideoHostImpl::CreateEncodedFrame(GMPVideoEncodedFrame** aFrame)
   f->SetHost(this);
   *aFrame = f;
   mEncodedFrames.AppendElement(f);
-
-  return GMPVideoNoErr;
-}
-
-GMPVideoErr
-GMPVideoHostImpl::CreateThread(GMPThread **thread)
-{
-  GMPThread *thr = GMPThreadImpl::Create();
-
-  if (!thr)
-    return GMPVideoGenericErr;
-
-  *thread = thr;
-
-  return GMPVideoNoErr;
-}
-
-GMPVideoErr
-GMPVideoHostImpl::GetThread(GMPThread **thread)
-{
-  nsIThread *thr;
-
-  nsresult rv = NS_GetCurrentThread(&thr);
-  if (NS_FAILED(rv))
-    return GMPVideoGenericErr;
-
-  *thread = new GMPThreadImpl(thr);
-
-  return GMPVideoNoErr;
-}
-
-GMPVideoErr
-GMPVideoHostImpl::CreateMutex(GMPMutex** mutex)
-{
-  *mutex = new GMPMutexImpl();
 
   return GMPVideoNoErr;
 }
