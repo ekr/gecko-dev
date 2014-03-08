@@ -41,6 +41,7 @@ GMPVideoEncoderChild::Encoded(GMPVideoEncodedFrame* aEncodedFrame,
   ipc::Shmem* sm = nullptr;
   ef->ExtractShmem(&sm);
   SendEncoded(*ef, *sm, aCodecSpecificInfo);
+  aEncodedFrame->Destroy();
 }
 
 bool

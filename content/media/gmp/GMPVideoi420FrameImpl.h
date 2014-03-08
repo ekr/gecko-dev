@@ -65,7 +65,6 @@ public:
   virtual int64_t RenderTime_ms() const MOZ_OVERRIDE;
   virtual bool IsZeroSize() const MOZ_OVERRIDE;
   virtual void ResetSize() MOZ_OVERRIDE;
-  virtual void* NativeHandle() const MOZ_OVERRIDE;
 
 private:
   bool CheckDimensions(int32_t aWidth, int32_t aHeight,

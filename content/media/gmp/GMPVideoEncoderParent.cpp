@@ -99,6 +99,8 @@ GMPVideoEncoderParent::Encode(GMPVideoi420Frame* aInputFrame,
     return GMPVideoGenericErr;
   }
 
+  aInputFrame->Destroy();
+
   // Async IPC, always return no error here. A real failure will
   // terminate subprocess.
   return GMPVideoNoErr;
@@ -198,8 +200,6 @@ GMPVideoEncoderParent::RecvEncoded(const GMPVideoEncodedFrameImpl& aEncodedFrame
   f->ReceiveShmem(aEncodedFrameBuffer);
 
   mObserver->Encoded(f, aCodecSpecificInfo);
-
-  f->Destroy();
 
   return true;
 }

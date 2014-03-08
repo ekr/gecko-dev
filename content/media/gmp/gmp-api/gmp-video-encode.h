@@ -41,6 +41,7 @@
 #include "gmp-video-frame-encoded.h"
 #include "gmp-video-codec.h"
 
+// ALL METHODS MUST BE CALLED ON THE MAIN THREAD
 class GMPEncoderCallback
 {
 public:
@@ -48,6 +49,7 @@ public:
                        const GMPCodecSpecificInfo& aCodecSpecificInfo) = 0;
 };
 
+// ALL METHODS MUST BE CALLED ON THE MAIN THREAD
 class GMPVideoEncoder
 {
 public:

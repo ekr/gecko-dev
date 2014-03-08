@@ -139,7 +139,7 @@ struct GMPCodecSpecificInfoVP8
   uint8_t mSimulcastIdx;
   uint8_t mTemporalIdx;
   bool mLayerSync;
-  int32_t mTL0PicIdx; // Negative value to skip tl0PicIdx
+  int32_t mTL0PicIdx; // negative value to skip tl0PicIdx
   int8_t mKeyIdx; // negative value to skip keyIdx
 };
 

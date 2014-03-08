@@ -49,11 +49,15 @@ enum GMPVideoFrameType
 // is passed to an interface the creator loses ownership and must Destroy()
 // the object. Further attempts to use it may fail due to not being able to
 // access the underlying buffer(s).
-
+//
+// Methods that create or destroy shared memory must be called on the main
+// thread. They are marked below.
 class GMPVideoEncodedFrame
 {
 public:
+  // MAIN THREAD ONLY
   virtual GMPVideoErr CreateEmptyFrame(uint32_t aSize) = 0;
+  // MAIN THREAD ONLY
   virtual GMPVideoErr CopyFrame(const GMPVideoEncodedFrame& aVideoFrame) = 0;
   virtual void     SetEncodedWidth(uint32_t aEncodedWidth) = 0;
   virtual uint32_t EncodedWidth() = 0;
@@ -73,6 +77,7 @@ public:
   virtual bool     CompleteFrame() = 0;
   virtual const uint8_t* Buffer() const = 0;
   virtual uint8_t*       Buffer() = 0;
+  // MAIN THREAD ONLY IF OWNING PROCESS
   virtual void     Destroy() = 0;
 };
 

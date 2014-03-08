@@ -42,9 +42,12 @@
 // is passed to an interface the creator loses ownership and must Destroy()
 // the object. Further attempts to use it may fail due to not being able to
 // access the underlying buffer(s).
-
+//
+// Methods that create or destroy shared memory must be called on the main
+// thread. They are marked below.
 class GMPPlane {
 public:
+  // MAIN THREAD ONLY
   // CreateEmptyPlane - set allocated size, actual plane size and stride:
   // If current size is smaller than current size, then a buffer of sufficient
   // size will be allocated.
@@ -52,9 +55,11 @@ public:
                                        int32_t aStride,
                                        int32_t aPlaneSize) = 0;
 
+  // MAIN THREAD ONLY
   // Copy the entire plane data.
   virtual GMPVideoErr Copy(const GMPPlane& aPlane) = 0;
 
+  // MAIN THREAD ONLY
   // Copy buffer: If current size is smaller
   // than current size, then a buffer of sufficient size will be allocated.
   virtual GMPVideoErr Copy(int32_t aSize, int32_t aStride, const uint8_t* aBuffer) = 0;
@@ -80,6 +85,7 @@ public:
   // Overloading with non-const.
   virtual uint8_t* Buffer() = 0;
 
+  // MAIN THREAD ONLY IF OWNING PROCESS
   // Call this when done with the object. This may delete it.
   virtual void Destroy() = 0;
 };

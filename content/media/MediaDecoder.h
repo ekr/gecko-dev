@@ -255,13 +255,13 @@ public:
   virtual ~MediaDecoder();
 
   // GMPDecoderCallback
-  virtual void Decoded(GMPVideoi420Frame* decodedFrame) MOZ_OVERRIDE;
+  virtual void Decoded(GMPVideoi420Frame* aDecodedFrame) MOZ_OVERRIDE;
   virtual void ReceivedDecodedReferenceFrame(const uint64_t pictureId) MOZ_OVERRIDE;
   virtual void ReceivedDecodedFrame(const uint64_t pictureId) MOZ_OVERRIDE;
   virtual void InputDataExhausted() MOZ_OVERRIDE;
 
   // GMPEncoderCallback
-  virtual void Encoded(GMPVideoEncodedFrame& aEncodedFrame,
+  virtual void Encoded(GMPVideoEncodedFrame* aEncodedFrame,
                        const GMPCodecSpecificInfo& aCodecSpecificInfo) MOZ_OVERRIDE;
 
   // Reset the decoder and notify the media element that

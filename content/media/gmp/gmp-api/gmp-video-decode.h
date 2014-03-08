@@ -39,6 +39,7 @@
 #include "gmp-video-frame-encoded.h"
 #include "gmp-video-codec.h"
 
+// ALL METHODS MUST BE CALLED ON THE MAIN THREAD
 class GMPDecoderCallback
 {
 public:
@@ -51,6 +52,7 @@ public:
   virtual void InputDataExhausted() = 0;
 };
 
+// ALL METHODS MUST BE CALLED ON THE MAIN THREAD
 class GMPVideoDecoder
 {
 public:

@@ -326,11 +326,5 @@ GMPVideoi420FrameImpl::ResetSize()
   mVPlane.ResetSize();
 }
 
-void*
-GMPVideoi420FrameImpl::NativeHandle() const
-{
-  return nullptr;
-}
-
 } // namespace gmp
 } // namespace mozilla

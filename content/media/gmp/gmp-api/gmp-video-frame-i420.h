@@ -51,9 +51,12 @@ enum GMPPlaneType {
 // is passed to an interface the creator loses ownership and must Destroy()
 // the object. Further attempts to use it may fail due to not being able to
 // access the underlying buffer(s).
-
+//
+// Methods that create or destroy shared memory must be called on the main
+// thread. They are marked below.
 class GMPVideoi420Frame : public GMPVideoFrame {
 public:
+  // MAIN THREAD ONLY
   // CreateEmptyFrame: Sets frame dimensions and allocates buffers based
   // on set dimensions - height and plane stride.
   // If required size is bigger than the allocated one, new buffers of adequate
@@ -61,6 +64,7 @@ public:
   virtual GMPVideoErr CreateEmptyFrame(int32_t aWidth, int32_t aHeight,
                                        int32_t aStride_y, int32_t aStride_u, int32_t aStride_v) = 0;
 
+  // MAIN THREAD ONLY
   // CreateFrame: Sets the frame's members and buffers. If required size is
   // bigger than allocated one, new buffers of adequate size will be allocated.
   virtual GMPVideoErr CreateFrame(int32_t aSize_y, const uint8_t* aBuffer_y,
@@ -69,6 +73,7 @@ public:
                                   int32_t aWidth, int32_t aHeight,
                                   int32_t aStride_y, int32_t aStride_u, int32_t aStride_v) = 0;
 
+  // MAIN THREAD ONLY
   // Copy frame: If required size is bigger than allocated one, new buffers of
   // adequate size will be allocated.
   virtual GMPVideoErr CopyFrame(const GMPVideoi420Frame& aVideoFrame) = 0;
@@ -117,11 +122,6 @@ public:
 
   // Reset underlying plane buffers sizes to 0. This function doesn't clear memory.
   virtual void ResetSize() = 0;
-
-  // Return the handle of the underlying video frame. This is used when the
-  // frame is backed by a texture. The object should be destroyed when it is no
-  // longer in use, so the underlying resource can be freed.
-  virtual void* NativeHandle() const = 0;
 };
 
 #endif // GMP_VIDEO_FRAME_I420_h_
