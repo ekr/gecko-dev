@@ -58,6 +58,10 @@ public:
   // When we receive an Shmem object via IPDL param, we'll "put it back" via this method.
   void ReceiveShmem(ipc::Shmem& aShmem);
 
+  // GMPVideoFrame
+  virtual GMPVideoFrameFormat GetFrameFormat() MOZ_OVERRIDE;
+  virtual void Destroy() MOZ_OVERRIDE;
+
   // GMPVideoEncodedFrame
   virtual GMPVideoErr CreateEmptyFrame(uint32_t aSize) MOZ_OVERRIDE;
   virtual GMPVideoErr CopyFrame(const GMPVideoEncodedFrame& aFrame) MOZ_OVERRIDE;
@@ -79,7 +83,6 @@ public:
   virtual bool     CompleteFrame() MOZ_OVERRIDE;
   virtual const uint8_t* Buffer() const MOZ_OVERRIDE;
   virtual uint8_t* Buffer() MOZ_OVERRIDE;
-  virtual void     Destroy() MOZ_OVERRIDE;
 
 private:
   void DestroyBuffer();

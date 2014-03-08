@@ -46,7 +46,6 @@ public:
   // caller is owner and responsible for deleting.
   virtual GMPVideoErr CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFrame) = 0;
   virtual GMPVideoErr CreatePlane(GMPPlane** aPlane) = 0;
-  virtual GMPVideoErr CreateEncodedFrame(GMPVideoEncodedFrame** aFrame) = 0;
 };
 
 #endif // GMP_VIDEO_HOST_h_

@@ -529,11 +529,12 @@ bool MediaDecoder::Init(MediaDecoderOwner* aOwner)
     return false;
   }
 
-  GMPVideoEncodedFrame* encFrame = nullptr;
-  err = videoHost->CreateEncodedFrame(&encFrame);
+  f = nullptr;
+  err = videoHost->CreateFrame(kGMPEncodedVideoFrame, &f);
   if (err != GMPVideoNoErr) {
     return false;
   }
+  GMPVideoEncodedFrame* encFrame = static_cast<GMPVideoEncodedFrame*>(f);
 
   err = encFrame->CreateEmptyFrame(1000);
   if (err != GMPVideoNoErr) {

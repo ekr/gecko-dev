@@ -45,6 +45,13 @@ GMPVideoEncodedFrameImpl::~GMPVideoEncodedFrameImpl()
   }
 }
 
+
+GMPVideoFrameFormat
+GMPVideoEncodedFrameImpl::GetFrameFormat()
+{
+  return kGMPEncodedVideoFrame;
+}
+
 void
 GMPVideoEncodedFrameImpl::SetHost(GMPVideoHostImpl* aHost)
 {

@@ -38,7 +38,8 @@
 #include "gmp-video-plane.h"
 
 enum GMPVideoFrameFormat {
-  kGMPI420VideoFrame = 0
+  kGMPEncodedVideoFrame = 0,
+  kGMPI420VideoFrame = 1
 };
 
 class GMPVideoFrame {

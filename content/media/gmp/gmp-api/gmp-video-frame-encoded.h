@@ -52,7 +52,7 @@ enum GMPVideoFrameType
 //
 // Methods that create or destroy shared memory must be called on the main
 // thread. They are marked below.
-class GMPVideoEncodedFrame
+class GMPVideoEncodedFrame : public GMPVideoFrame
 {
 public:
   // MAIN THREAD ONLY
@@ -77,8 +77,6 @@ public:
   virtual bool     CompleteFrame() = 0;
   virtual const uint8_t* Buffer() const = 0;
   virtual uint8_t*       Buffer() = 0;
-  // MAIN THREAD ONLY IF OWNING PROCESS
-  virtual void     Destroy() = 0;
 };
 
 #endif // GMP_VIDEO_FRAME_ENCODED_h_

@@ -37,6 +37,14 @@ GMPVideoHostImpl::CreateFrame(GMPVideoFrameFormat aFormat, GMPVideoFrame** aFram
       *aFrame = f;
       return GMPVideoNoErr;
     }
+  } else if (aFormat == kGMPEncodedVideoFrame) {
+    auto f = new GMPVideoEncodedFrameImpl();
+    if (f) {
+      f->SetHost(this);
+      *aFrame = f;
+      mEncodedFrames.AppendElement(f);
+      return GMPVideoNoErr;
+    }
   }
 
   return GMPVideoGenericErr;
@@ -62,30 +70,6 @@ GMPVideoHostImpl::CreatePlane(GMPPlane** aPlane)
   p->SetHost(this);
   *aPlane = p;
   mPlanes.AppendElement(p);
-
-  return GMPVideoNoErr;
-}
-
-GMPVideoErr
-GMPVideoHostImpl::CreateEncodedFrame(GMPVideoEncodedFrame** aFrame)
-{
-  if (!mSharedMemMgr) {
-    return GMPVideoGenericErr;
-  }
-
-  if (!aFrame) {
-    return GMPVideoGenericErr;
-  }
-  *aFrame = nullptr;
-
-  auto f = new GMPVideoEncodedFrameImpl();
-  if (!f) {
-    return GMPVideoAllocErr;
-  }
-
-  f->SetHost(this);
-  *aFrame = f;
-  mEncodedFrames.AppendElement(f);
 
   return GMPVideoNoErr;
 }
