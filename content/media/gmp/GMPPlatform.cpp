@@ -163,7 +163,6 @@ GMPThreadImpl::Post(GMPTask* aTask)
     }
   }
 
-//XXXJOSH seems like this is not resulting in the event being run
   nsRefPtr<Runnable> r = new Runnable(aTask);
   mThread.message_loop()->PostTask(FROM_HERE, NewRunnableMethod(r.get(), &Runnable::Run));
 }
