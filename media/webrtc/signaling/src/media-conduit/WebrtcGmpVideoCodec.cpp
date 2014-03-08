@@ -209,7 +209,7 @@ int32_t WebrtcGmpVideoEncoder::Encode(
     gmp_frame_types.push_back(ft);
   }
 
-  err = gmp_->Encode(*frame, info, &gmp_frame_types);
+  err = gmp_->Encode(frame, info, &gmp_frame_types);
   if (err != GMPVideoNoErr) {
     return err;
   }
@@ -243,17 +243,17 @@ int32_t WebrtcGmpVideoEncoder::SetRates(uint32_t newBitRate,
 }
 
 // GMPEncoderCallback virtual functions.
-void WebrtcGmpVideoEncoder::Encoded(GMPVideoEncodedFrame& aEncodedFrame,
+void WebrtcGmpVideoEncoder::Encoded(GMPVideoEncodedFrame* aEncodedFrame,
                                     const GMPCodecSpecificInfo& aCodecSpecificInfo) {
-  webrtc::EncodedImage image(aEncodedFrame.Buffer(), aEncodedFrame.AllocatedSize(),
-                             aEncodedFrame.Size());
+  webrtc::EncodedImage image(aEncodedFrame->Buffer(), aEncodedFrame->AllocatedSize(),
+                             aEncodedFrame->Size());
 
-  image._encodedWidth = aEncodedFrame.EncodedWidth();
-  image._encodedHeight = aEncodedFrame.EncodedHeight();
-  image._timeStamp = aEncodedFrame.TimeStamp();
+  image._encodedWidth = aEncodedFrame->EncodedWidth();
+  image._encodedHeight = aEncodedFrame->EncodedHeight();
+  image._timeStamp = aEncodedFrame->TimeStamp();
 
   webrtc::VideoFrameType ft;
-  int32_t ret = GmpFrameTypeToWebrtcFrameType(aEncodedFrame.FrameType(),
+  int32_t ret = GmpFrameTypeToWebrtcFrameType(aEncodedFrame->FrameType(),
                                               &ft);
   if (ret != WEBRTC_VIDEO_CODEC_OK)
     return;
