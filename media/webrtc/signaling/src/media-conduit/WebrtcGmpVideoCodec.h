@@ -37,6 +37,29 @@
 
 namespace mozilla {
 
+class WebrtcGmpFrameStats {
+ public:
+  WebrtcGmpFrameStats(const char *type) :
+      frames_in_(0),
+      frames_out_(0),
+      start_time_(time(0)),
+      last_time_(start_time_),
+      type_(type) {}
+
+  void FrameIn();
+
+  void FrameOut() {
+    ++frames_out_;
+  }
+
+ private:
+  uint64_t frames_in_;
+  uint64_t frames_out_;
+  time_t start_time_;
+  time_t last_time_;
+  const std::string type_;
+};
+
 class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder,
                               public GMPEncoderCallback {
  public:
@@ -83,6 +106,7 @@ class WebrtcGmpVideoEncoder : public WebrtcVideoEncoder,
   GMPVideoEncoder* gmp_;
   GMPVideoHost* host_;
   webrtc::EncodedImageCallback* callback_;
+  WebrtcGmpFrameStats stats_;
 };
 
 
@@ -140,6 +164,7 @@ class WebrtcGmpVideoDecoder : public WebrtcVideoDecoder,
   GMPVideoDecoder* gmp_;
   GMPVideoHost* host_;
   webrtc::DecodedImageCallback* callback_;
+  WebrtcGmpFrameStats stats_;
 };
 
 }
