@@ -129,7 +129,6 @@ GMPVideoEncodedFrameImpl::CopyFrame(const GMPVideoEncodedFrame& aFrame)
   }
   mEncodedWidth = f.mEncodedWidth;
   mEncodedHeight = f.mEncodedHeight;
-  mSize = f.mSize;
   mTimeStamp = f.mTimeStamp;
   mCaptureTime_ms = f.mCaptureTime_ms;
   mFrameType = f.mFrameType;
