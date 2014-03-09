@@ -214,8 +214,6 @@ int32_t WebrtcGmpVideoEncoder::Encode(
     return err;
   }
 
-  frame->Destroy();
-
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -356,13 +354,14 @@ int32_t WebrtcGmpVideoDecoder::Decode_m(
     const webrtc::CodecSpecificInfo*
     codecSpecificInfo,
     int64_t renderTimeMs) {
-  GMPVideoEncodedFrame* frame = nullptr;
 
-  GMPVideoErr err = host_->CreateEncodedFrame(&frame);
+  GMPVideoFrame* ftmp = nullptr;
+  GMPVideoErr err = host_->CreateFrame(kGMPEncodedVideoFrame, &ftmp);
   if (err != GMPVideoNoErr) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
+  GMPVideoEncodedFrame* frame = static_cast<GMPVideoEncodedFrame*>(ftmp);
   err = frame->CreateEmptyFrame(inputImage._length);
   if (err != GMPVideoNoErr) {
     return WEBRTC_VIDEO_CODEC_ERROR;
