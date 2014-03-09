@@ -24,6 +24,17 @@
 
 namespace mozilla {
 
+#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
+#define VIDEO_META_DATA_MAGIC 0x564d444d    // VMDM
+
+struct VideoMetaData {
+  uint32_t magic;
+  uint32_t frame_ct;
+  uint32_t timestamp;
+};
+#endif
+
+
 static const char* logTag ="WebrtcVideoSessionConduit";
 
 // 32 bytes is what WebRTC CodecInst expects
@@ -608,6 +619,8 @@ WebrtcVideoConduit::ConfigureRecvMediaCodecs(
   }
 
   mEngineReceiving = false;
+  mReceivingHeight = 0;
+  mSendingHeight = 0;
 
   if(codecConfigList.empty())
   {
@@ -898,6 +911,15 @@ WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
   }
 
   webrtc::RawVideoType type;
+#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
+  ++mSentFrames;
+  VideoMetaData meta;
+  meta.magic = htonl(VIDEO_META_DATA_MAGIC);
+  meta.frame_ct = htonl(mSentFrames);
+  uint32_t now_abs = PR_Now() & 0xffffffff;
+  meta.timestamp = htonl(now_abs);
+#endif
+
   switch (video_type) {
     case kVideoI420:
       type = webrtc::kVideoI420;
@@ -907,13 +929,18 @@ WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
 			width,
 			reinterpret_cast<uint8_t*>(video_frame),
 			delta_ms, width/2, height/50);
-
-      ++mSentFrames;
       YuvStamper::Write(width,
 			height,
 			width,
 			reinterpret_cast<uint8_t*>(video_frame),
 			mSentFrames, width/2, height/50 + 30);
+
+      YuvStamper::Encode(width,
+                         height,
+			 width,
+			 reinterpret_cast<uint8_t*>(video_frame),
+                         reinterpret_cast<uint8_t*>(&meta), sizeof(meta),
+			 0, 0);
 #endif
       break;
     case kVideoNV21:
@@ -1070,6 +1097,9 @@ WebrtcVideoConduit::FrameSizeChange(unsigned int width,
 {
   CSFLogDebug(logTag,  "%s ", __FUNCTION__);
 
+  mReceivingWidth = width;
+  mReceivingHeight = height;
+
   if(mRenderer)
   {
     mRenderer->FrameSizeChange(width, height, numStreams);
@@ -1088,6 +1118,27 @@ WebrtcVideoConduit::DeliverFrame(unsigned char* buffer,
                                  void *handle)
 {
   CSFLogDebug(logTag,  "%s Buffer Size %d", __FUNCTION__, buffer_size);
+
+#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
+  if (mReceivingWidth && mReceivingHeight) {
+    VideoMetaData meta;
+    memset(&meta, 0, sizeof(meta));
+    bool rv = YuvStamper::Decode(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                                 buffer,
+                                 reinterpret_cast<uint8_t*>(&meta),
+                                 sizeof(meta), 0, 0);
+    if (rv) {
+      if (ntohl(meta.magic) == VIDEO_META_DATA_MAGIC) {
+        uint32_t now = PR_Now() & 0xffffffff;
+        uint32_t delta_ms = (now - ntohl(meta.timestamp))/1000;
+        // OK, we have meta-data. Now scribble stuff on the frames.
+        YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                          buffer, delta_ms, 0,
+                          mReceivingHeight - 60);
+      }
+    }
+  }
+#endif
 
   if(mRenderer)
   {

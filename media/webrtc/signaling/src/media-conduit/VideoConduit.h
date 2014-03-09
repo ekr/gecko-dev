@@ -295,6 +295,8 @@ private:
   VideoCodecConfig* mCurSendCodecConfig;
   unsigned short mSendingWidth;
   unsigned short mSendingHeight;
+  unsigned int mReceivingWidth;
+  unsigned int mReceivingHeight;
 
 #ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
   PRIntervalTime mStartTime;

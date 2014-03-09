@@ -147,6 +147,32 @@ bool YuvStamper::WritePixel(uint8_t *data, uint32_t x, uint32_t y) {
   return true;
 }
 
+bool YuvStamper::WriteValue(uint8_t *data, uint32_t x, uint32_t y, uint8_t value) {
+  if (x > width_)
+    return false;
+
+  if (y > height_)
+    return false;
+
+  uint8_t *ptr = &data[y * stride_ + x];
+  *ptr = value;
+
+  return true;
+}
+
+bool YuvStamper::ReadValue(uint8_t *data, uint32_t x, uint32_t y, uint8_t* value) {
+  if (x > width_)
+    return false;
+
+  if (y > height_)
+    return false;
+
+  uint8_t *ptr = &data[y * stride_ + x];
+  *value = *ptr;
+
+  return true;
+}
+
 
 bool YuvStamper::WriteDigit(uint8_t* data, uint32_t x, uint32_t y, uint8_t digit) {
   if (digit > 9)
@@ -173,7 +199,7 @@ bool YuvStamper::WriteDigit(uint8_t* data, uint32_t x, uint32_t y, uint8_t digit
 bool YuvStamper::Write(uint8_t *data, uint32_t value, uint32_t x, uint32_t y) {
   char buf[20];
 
-  PR_snprintf(buf, sizeof(buf), "%u", value);
+  PR_snprintf(buf, sizeof(buf), "%.5u", value);
 
   for (size_t i=0; i<strlen(buf); ++i) {
     if (!WriteDigit(data, x, y, buf[i] - '0'))
@@ -185,7 +211,59 @@ bool YuvStamper::Write(uint8_t *data, uint32_t value, uint32_t x, uint32_t y) {
   return true;
 }
 
+// Encode a binary value as a big-endian binary value starting at x, y,
+// with 1 being a 2x2 block of 0x80 pixels and 0 being a 2x2 block of
+// 0 pixels.
+bool YuvStamper::Encode(uint32_t width, uint32_t height, uint32_t stride,
+                        uint8_t* data, const uint8_t* value, size_t len,
+                        uint32_t x, uint32_t y) {
+  YuvStamper stamper(width, height, stride);
+
+  for (size_t i = 0; i < (len*8); ++i) {
+    bool is_set = !!(value[i/8] & (0x80 >> i%8));
+    for (uint32_t xx = 0; xx < kBitSize; ++xx) {
+      for (uint32_t yy = 0; yy < kBitSize; ++yy) {
+        if (!stamper.WriteValue(data, x + (i * kBitSize) + xx, y +yy,
+                                is_set ? 0x80 : 0))
+          return false;
+      }
+    }
+  }
+  return true;
 }
+
+// Decode a binary value as a big-endian binary value starting at x, y,
+// with 1 being a 2x2 block of 0x80 pixels and 0 being a 2x2 block of
+// 0 pixels.
+
+bool YuvStamper::Decode(uint32_t width, uint32_t height, uint32_t stride,
+                        uint8_t* data, uint8_t* value, size_t len,
+                        uint32_t x, uint32_t y) {
+  YuvStamper stamper(width, height, stride);
+
+  memset(value, 0, len);
+
+  for (size_t i = 0; i < (len*8); ++i) {
+    uint32_t sum = 0;
+    for (uint32_t xx = 0; xx < kBitSize; ++xx) {
+      for (uint32_t yy = 0; yy < kBitSize; ++yy) {
+        uint8_t val;
+        if (!stamper.ReadValue(data, x + (i * kBitSize) + xx, y +yy, &val))
+          return false;
+
+        sum += val;
+      }
+    }
+    if (sum > (kBitThreshold * kBitSize * kBitSize)) {
+      value[i/8] |= (0x80 >> i%8);
+    }
+  }
+  return true;
+}
+
+
+}  // Namespace mozilla.
+
 
 
 

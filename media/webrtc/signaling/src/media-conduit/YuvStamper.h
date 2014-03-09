@@ -23,13 +23,25 @@ class YuvStamper {
     return stamper.Write(data, value, x, y);
   }
 
+  static bool Encode(uint32_t width, uint32_t height, uint32_t stride,
+		     uint8_t* data, const uint8_t* value, size_t len,
+		     uint32_t x, uint32_t y);
+  static bool Decode(uint32_t width, uint32_t height, uint32_t stride,
+		     uint8_t* data, uint8_t* value, size_t len,
+		     uint32_t x, uint32_t y);
+
+
  private:
   bool WriteDigit(uint8_t* data, uint32_t x, uint32_t y, uint8_t digit);
   bool WritePixel(uint8_t* data, uint32_t x, uint32_t y);
+  bool WriteValue(uint8_t *data, uint32_t x, uint32_t y, uint8_t value);
+  bool ReadValue(uint8_t *data, uint32_t x, uint32_t y, uint8_t* value);
 
-  const uint32_t kPixelSize = 3;
-  const uint32_t kDigitWidth = 6;
-  const uint32_t kDigitHeight = 7;
+  const static uint32_t kPixelSize = 3;
+  const static uint32_t kDigitWidth = 6;
+  const static uint32_t kDigitHeight = 7;
+  const static uint32_t kBitSize = 2;
+  const static uint32_t kBitThreshold = 60;
 
   uint32_t width_;
   uint32_t height_;
