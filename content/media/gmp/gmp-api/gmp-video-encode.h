@@ -45,6 +45,8 @@
 class GMPEncoderCallback
 {
 public:
+  virtual ~GMPEncoderCallback() {}
+
   virtual void Encoded(GMPVideoEncodedFrame* aEncodedFrame,
                        const GMPCodecSpecificInfo& aCodecSpecificInfo) = 0;
 };
@@ -53,6 +55,8 @@ public:
 class GMPVideoEncoder
 {
 public:
+  virtual ~GMPVideoEncoder() {}
+
   // Initialize the encoder with the information from the VideoCodec.
   //
   // Input:

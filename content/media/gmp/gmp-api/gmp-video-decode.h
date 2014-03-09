@@ -43,6 +43,8 @@
 class GMPDecoderCallback
 {
 public:
+  virtual ~GMPDecoderCallback() {}
+
   virtual void Decoded(GMPVideoi420Frame* aDecodedFrame) = 0;
 
   virtual void ReceivedDecodedReferenceFrame(const uint64_t aPictureId) = 0;
@@ -56,6 +58,8 @@ public:
 class GMPVideoDecoder
 {
 public:
+  virtual ~GMPVideoDecoder() {}
+
   // aCallback: Subclass should retain reference to it until DecodingComplete
   //            is called. Do not attempt to delete it, host retains ownership.
   virtual GMPVideoErr InitDecode(const GMPVideoCodec& aCodecSettings,
