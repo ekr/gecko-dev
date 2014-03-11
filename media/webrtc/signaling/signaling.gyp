@@ -184,7 +184,7 @@
         'HAVE_UINT16_T=1',
         'HAVE_UINT32_T=1',
         'HAVE_UINT64_T=1',
-        'VIDEOCONDUIT_INSERT_TIMESTAMP'
+#        'VIDEOCONDUIT_INSERT_TIMESTAMP'
       ],
 
       'cflags_mozilla': [
