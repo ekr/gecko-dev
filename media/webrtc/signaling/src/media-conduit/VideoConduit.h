@@ -298,9 +298,11 @@ private:
   unsigned int mReceivingWidth;
   unsigned int mReceivingHeight;
 
+  uint32_t mSentFrames;
 #ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
   PRIntervalTime mStartTime;
-  uint32_t mSentFrames;
+  uint32_t mRecvFrames;
+  uint32_t mLastRecvFrame;
 #endif
 
   mozilla::RefPtr<WebrtcAudioConduit> mSyncedTo;

@@ -27,6 +27,9 @@
 namespace mozilla {
 
 void WebrtcGmpFrameStats::FrameIn() {
+  if (!frames_in_)
+    std::cerr << "FIRST FRAME" << std::endl;
+
   ++frames_in_;
   time_t now = time(0);
 
@@ -157,7 +160,7 @@ int32_t WebrtcGmpVideoEncoder::InitEncode_m(
   codec.mStartBitrate = codecSettings->startBitrate;
   codec.mMaxFramerate = codecSettings->maxFramerate;
 
-  GMPVideoErr err = gmp_->InitEncode(codec, this, 1, 1);
+  GMPVideoErr err = gmp_->InitEncode(codec, this, 1, maxPayloadSize);
   if (err != GMPVideoNoErr) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }

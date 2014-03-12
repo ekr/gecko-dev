@@ -83,7 +83,7 @@ public:
   ~VideoSendAndReceive()
   {
   }
- 
+
   void SetDimensions(int w, int h)
   {
     width = w;
@@ -95,19 +95,33 @@ public:
   void Init(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession)
   {
         mSession = aSession;
+        mLen = ((width * height) * 3 / 2);
+        mFrame = (uint8_t*) PR_MALLOC(mLen);
+        memset(mFrame, COLOR, mLen);
+        numFrames = 121;
   }
+
+  void Init(mozilla::RefPtr<mozilla::VideoSessionConduit> aSession,
+            const char *file, int w, int h)
+  {
+        SetDimensions(w, h);
+        mSession = aSession;
+        mLen = ((width * height) * 3 / 2);
+        mFrame = (uint8_t*) PR_MALLOC(mLen);
+        FILE *fp = fopen(file, "r");
+        ASSERT_TRUE(fp != nullptr);
+        int rv = fread(mFrame.get(), 1, mLen, fp);
+        fclose(fp);
+        ASSERT_EQ(mLen, rv);
+        numFrames = 200;
+  }
+
   void GenerateAndReadSamples()
   {
-
-    int len = ((width * height) * 3 / 2);
-    uint8_t* frame = (uint8_t*) PR_MALLOC(len);
-    int numFrames = 121;
-    memset(frame, COLOR, len);
-
     do
     {
-      mSession->SendVideoFrame((unsigned char*)frame,
-                                len,
+      mSession->SendVideoFrame((unsigned char*)mFrame,
+                                mLen,
                                 width,
                                 height,
                                 mozilla::kVideoI420,
@@ -116,13 +130,15 @@ public:
       vidStatsGlobal.numRawFramesInserted++;
       numFrames--;
     } while(numFrames >= 0);
-    PR_Free(frame);
   }
 
 private:
 mozilla::RefPtr<mozilla::VideoSessionConduit> mSession;
+mozilla::ScopedDeletePtr<uint8_t> mFrame;
+int mLen;
 int width, height;
 int rate;
+int numFrames;
 };
 
 
@@ -571,7 +587,7 @@ class TransportConduitTest : public ::testing::Test
   }
 
   //2. Dump audio samples to dummy external transport
-  void TestDummyVideoAndTransport(bool send_vp8 = true)
+  void TestDummyVideoAndTransport(bool send_vp8 = true, const char *source_file = nullptr)
   {
     int err = 0;
     //get pointer to VideoSessionConduit
@@ -630,7 +646,12 @@ class TransportConduitTest : public ::testing::Test
     cerr << "    Starting the Video Sample Generation " << endl;
     cerr << "   *************************************************" << endl;
     PR_Sleep(PR_SecondsToInterval(2));
-    videoTester.Init(mVideoSession);
+    if (source_file) {
+      videoTester.Init(mVideoSession, source_file, 320, 240);
+    }
+    else {
+      videoTester.Init(mVideoSession);
+    }
     videoTester.GenerateAndReadSamples();
     PR_Sleep(PR_SecondsToInterval(2));
 
@@ -942,6 +963,10 @@ TEST_F(TransportConduitTest, TestDummyVideoWithTransport) {
 
 TEST_F(TransportConduitTest, TestVideoConduitExternalCodec) {
   TestDummyVideoAndTransport(false);
+}
+
+TEST_F(TransportConduitTest, TestVideoConduitExternalCodecFixedVideo) {
+  TestDummyVideoAndTransport(false, "./ekr-i420.dat");
 }
 
 TEST_F(TransportConduitTest, TestVideoConduitCodecAPI) {

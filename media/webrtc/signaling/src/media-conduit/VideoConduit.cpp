@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <iostream>
 #include "CSFLog.h"
 #include "nspr.h"
 
@@ -391,9 +392,11 @@ MediaConduitErrorCode WebrtcVideoConduit::Init(WebrtcVideoConduit *other)
     }
   }
 
+  mSentFrames = 0;
 #ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
   mStartTime = PR_IntervalNow();
-  mSentFrames = 0;
+  mRecvFrames = 0;
+  mLastRecvFrame = 0;
 #endif
 
   CSFLogError(logTag, "%s Initialization Done", __FUNCTION__);
@@ -901,6 +904,15 @@ WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
   uint32_t delta_ms = PR_IntervalToMilliseconds(now - mStartTime);
 #endif
 
+  static bool written = false;
+  if (!written) {
+      FILE *fp = fopen("/tmp/ekr-i420.dat", "w");
+      std::cerr << "Length = " << video_frame_length << std::endl;
+      fwrite(video_frame, 1, video_frame_length, fp);
+      written = true;
+      fclose(fp);
+  }
+
   //check for  the parameters sanity
   if(!video_frame || video_frame_length == 0 ||
      width == 0 || height == 0)
@@ -911,8 +923,11 @@ WebrtcVideoConduit::SendVideoFrame(unsigned char* video_frame,
   }
 
   webrtc::RawVideoType type;
-#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
   ++mSentFrames;
+  if (!(mSentFrames % 10)) {
+    std::cerr << "EKR: mSentFrames = " << mSentFrames << std::endl;
+  }
+#ifdef VIDEOCONDUIT_INSERT_TIMESTAMP
   VideoMetaData meta;
   meta.magic = htonl(VIDEO_META_DATA_MAGIC);
   meta.frame_ct = htonl(mSentFrames);
@@ -1135,6 +1150,17 @@ WebrtcVideoConduit::DeliverFrame(unsigned char* buffer,
         YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
                           buffer, delta_ms, 0,
                           mReceivingHeight - 60);
+
+	uint32_t delta_frame = ntohl(meta.frame_ct) - mLastRecvFrame;
+	mLastRecvFrame = ntohl(meta.frame_ct);
+        YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                          buffer, delta_frame, 0,
+                          mReceivingHeight - 120);
+
+	++mRecvFrames;
+        YuvStamper::Write(mReceivingWidth, mReceivingHeight, mReceivingWidth,
+                          buffer, mRecvFrames - mLastRecvFrame, 0,
+                          mReceivingHeight - 90);
       }
     }
   }
