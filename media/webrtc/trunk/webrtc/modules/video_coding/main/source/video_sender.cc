@@ -314,15 +314,30 @@ int32_t VideoSender::AddVideoFrame(const I420VideoFrame& videoFrame,
   }
   _mediaOpt.UpdateIncomingFrameRate();
 
-  if (_mediaOpt.DropFrame()) {
+    WEBRTC_TRACE(webrtc::kTraceStream,
+                 webrtc::kTraceVideoCoding,
+                 VCMId(_id),
+                 "EKR: AddVideoFrame");
+
+    if (_mediaOpt.DropFrame()) {
     WEBRTC_TRACE(webrtc::kTraceStream,
                  webrtc::kTraceVideoCoding,
                  VCMId(_id),
                  "Drop frame due to bitrate");
-  } else {
+    } else {
     _mediaOpt.UpdateContentData(contentMetrics);
+    WEBRTC_TRACE(webrtc::kTraceStream,
+                 webrtc::kTraceVideoCoding,
+                 VCMId(_id),
+                 "EKR: About to encode %u",
+		 videoFrame.timestamp());
     int32_t ret =
         _encoder->Encode(videoFrame, codecSpecificInfo, _nextFrameTypes);
+    WEBRTC_TRACE(webrtc::kTraceStream,
+                 webrtc::kTraceVideoCoding,
+                 VCMId(_id),
+		 "EKR: encoded frame %u",
+		 videoFrame.timestamp());
     if (_encoderInputFile != NULL) {
       if (PrintI420VideoFrame(videoFrame, _encoderInputFile) < 0) {
         return -1;
@@ -332,8 +347,8 @@ int32_t VideoSender::AddVideoFrame(const I420VideoFrame& videoFrame,
       WEBRTC_TRACE(webrtc::kTraceError,
                    webrtc::kTraceVideoCoding,
                    VCMId(_id),
-                   "Encode error: %d",
-                   ret);
+		   "EKR: error encoding frame %u",
+		   videoFrame.timestamp());
       return ret;
     }
     for (size_t i = 0; i < _nextFrameTypes.size(); ++i) {

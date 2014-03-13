@@ -231,6 +231,12 @@ bool VCMCodecDataBase::SetSendCodec(
                  send_codec->plName);
     return false;
   }
+  WEBRTC_TRACE(webrtc::kTraceError,
+	       webrtc::kTraceVideoCoding,
+	       VCMId(id_),
+	       "EKR: Initializing encoder: %s.",
+	       send_codec->plName);
+
   if (ptr_encoder_->InitEncode(send_codec,
                                number_of_cores_,
                                max_payload_size_) < 0) {
@@ -245,6 +251,12 @@ bool VCMCodecDataBase::SetSendCodec(
     DeleteEncoder();
     return false;
   }
+
+  WEBRTC_TRACE(webrtc::kTraceError,
+	       webrtc::kTraceVideoCoding,
+	       VCMId(id_),
+	       "EKR: Done Initializing encoder: %s.",
+	       send_codec->plName);
 
   // Intentionally don't check return value since the encoder registration
   // shouldn't fail because the codec doesn't support changing the periodic key

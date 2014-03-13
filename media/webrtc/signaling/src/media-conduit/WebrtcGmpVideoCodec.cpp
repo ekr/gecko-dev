@@ -174,6 +174,7 @@ int32_t WebrtcGmpVideoEncoder::Encode(
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
   stats_.FrameIn();
+
   int32_t ret;
   RUN_ON_THREAD(main_thread_,
                 WrapRunnableRet(this,

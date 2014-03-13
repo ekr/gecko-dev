@@ -558,6 +558,11 @@ void ViEEncoder::DeliverFrame(int id,
                video_frame->timestamp());
   {
     CriticalSectionScoped cs(data_cs_.get());
+    WEBRTC_TRACE(webrtc::kTraceStream,
+		 webrtc::kTraceVideo,
+		 ViEId(engine_id_, channel_id_),
+		 "EKR: %s", __FUNCTION__);
+
     if (default_rtp_rtcp_->SendingMedia() == false) {
       // We've paused or we have no channels attached, don't encode.
       return;
@@ -630,6 +635,12 @@ void ViEEncoder::DeliverFrame(int id,
   I420VideoFrame* decimated_frame = NULL;
   const int ret = vpm_.PreprocessFrame(*video_frame, &decimated_frame);
   if (ret == 1) {
+      WEBRTC_TRACE(webrtc::kTraceError,
+		   webrtc::kTraceVideo,
+		   ViEId(engine_id_, channel_id_),
+		   "%s: EKR DROPPING FRAME %u", __FUNCTION__,
+		   video_frame->timestamp());
+
     // Drop this frame.
     return;
   }
@@ -672,6 +683,11 @@ void ViEEncoder::DeliverFrame(int id,
     return;
   }
 #endif
+  WEBRTC_TRACE(webrtc::kTraceError,
+	       webrtc::kTraceVideo,
+	       ViEId(engine_id_, channel_id_),
+	       "EKR: %s", __FUNCTION__);
+
   if (vcm_.AddVideoFrame(*decimated_frame) != VCM_OK) {
     WEBRTC_TRACE(webrtc::kTraceError,
                  webrtc::kTraceVideo,
