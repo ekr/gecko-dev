@@ -5,6 +5,9 @@
 #include "nspr.h"
 
 #include <iostream>
+#include <vector>
+
+#include <sys/time.h>
 
 #include <mozilla/Scoped.h>
 #include "VideoConduit.h"
@@ -49,7 +52,8 @@ WebrtcGmpVideoEncoder::WebrtcGmpVideoEncoder() :
     gmp_(nullptr),
     host_(nullptr),
     callback_(nullptr),
-    stats_("WebrtcGmpVideoEncoder") {}
+    stats_("WebrtcGmpVideoEncoder"),
+    stampers_() {}
 
 static int WebrtcFrameTypeToGmpFrameType(webrtc::VideoFrameType in,
                                          GMPVideoFrameType *out) {
@@ -173,6 +177,8 @@ int32_t WebrtcGmpVideoEncoder::Encode(
     const webrtc::I420VideoFrame& inputImage,
     const webrtc::CodecSpecificInfo* codecSpecificInfo,
     const std::vector<webrtc::VideoFrameType>* frame_types) {
+  stampers_.push(new TimeStamper(""));
+  stampers_.back()->Stamp("Encode enter");
   stats_.FrameIn();
 
   int32_t ret;
@@ -185,6 +191,7 @@ int32_t WebrtcGmpVideoEncoder::Encode(
                                 &ret),
                 NS_DISPATCH_SYNC);
 
+  stampers_.back()->Stamp("Encode leave");
   return ret;
 }
 
@@ -193,7 +200,7 @@ int32_t WebrtcGmpVideoEncoder::Encode(
                                          const webrtc::CodecSpecificInfo* codecSpecificInfo,
                                          const std::vector<webrtc::VideoFrameType>* frame_types) {
   GMPVideoFrame* ftmp = nullptr;
-
+  stampers_.back()->Stamp("Encode_m enter");
   // Translate the image.
   GMPVideoErr err = host_->CreateFrame(kGMPI420VideoFrame, &ftmp);
   if (err != GMPVideoNoErr) {
@@ -237,6 +244,7 @@ int32_t WebrtcGmpVideoEncoder::Encode(
     return err;
   }
 
+  stampers_.back()->Stamp("Encode_m leave");
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -266,6 +274,11 @@ int32_t WebrtcGmpVideoEncoder::SetRates(uint32_t newBitRate,
 // GMPEncoderCallback virtual functions.
 void WebrtcGmpVideoEncoder::Encoded(GMPVideoEncodedFrame* aEncodedFrame,
                                     const GMPCodecSpecificInfo& aCodecSpecificInfo) {
+  TimeStamper* ts = stampers_.front();
+  stampers_.pop();
+
+  ts->Stamp("Encoded enter");
+
   webrtc::EncodedImage image(aEncodedFrame->Buffer(), aEncodedFrame->AllocatedSize(),
                              aEncodedFrame->Size());
 
@@ -283,6 +296,9 @@ void WebrtcGmpVideoEncoder::Encoded(GMPVideoEncodedFrame* aEncodedFrame,
 
   callback_->Encoded(image, nullptr, nullptr);
   stats_.FrameOut();
+  ts->Stamp("Encoded leave");
+  ts->Dump();
+  delete ts;
 }
 
 
