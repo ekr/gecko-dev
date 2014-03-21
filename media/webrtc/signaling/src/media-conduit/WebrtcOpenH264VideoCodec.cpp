@@ -197,39 +197,36 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   src.iPicHeight = inputImage->height();
 
   PRIntervalTime t0 = PR_IntervalNow();
-  int type = encoder_->EncodeFrame(&src, &encoded);
+  int result = encoder_->EncodeFrame(&src, &encoded);
   PRIntervalTime t1 = PR_IntervalNow();
 
   MOZ_MTLOG(ML_DEBUG, "Encoding time: " << PR_IntervalToMilliseconds(
       t1 - t0) << "ms");
 
-  // Translate int to enum
-  switch (type) {
-    case videoFrameTypeIDR:
-    case videoFrameTypeI:
-    case videoFrameTypeP:
+  switch (result) {
+    case cmResultSuccess:
       {
         ScopedDeletePtr<EncodedFrame> encoded_frame(
-            EncodedFrame::Create(encoded,
-                                 inputImage->width(),
-                                 inputImage->height(),
-                                 inputImage->timestamp(),
-                                 frame_type));
+          EncodedFrame::Create(encoded,
+                               inputImage->width(),
+                               inputImage->height(),
+                               inputImage->timestamp(),
+                               frame_type));
         callback_->Encoded(encoded_frame->image(), NULL, NULL);
       }
-      break;
-    case videoFrameTypeSkip:
-      //can skip the call back since not actual bit stream will be generated
-      break;
-    case videoFrameTypeIPMixed://this type is currently not suppported
-    case videoFrameTypeInvalid:
-      MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << type);
-      break;
+
+    case cmInitParaError:
+    case cmMallocMemeError:
+    case cmUnkonwReason:
+        MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << result);
+        break;
+
     default:
       // The API is defined as returning a type.
       MOZ_CRASH();
       break;
   }
+
   delete inputImage;
   return;
 }
