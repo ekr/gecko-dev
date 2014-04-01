@@ -86,6 +86,7 @@
         './src/media-conduit/AudioConduit.cpp',
         './src/media-conduit/VideoConduit.h',
         './src/media-conduit/VideoConduit.cpp',
+        './src/media-conduit/EventTimer.h',
         # Common
         './src/common/CommonTypes.h',
         './src/common/csf_common.h',

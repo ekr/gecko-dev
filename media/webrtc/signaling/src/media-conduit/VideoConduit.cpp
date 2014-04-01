@@ -11,6 +11,7 @@
 #include "VideoConduit.h"
 #include "AudioConduit.h"
 #include "nsThreadUtils.h"
+#include "EventTiming.h"
 
 #include "LoadManager.h"
 
