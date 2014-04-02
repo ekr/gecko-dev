@@ -96,7 +96,7 @@ WebrtcOpenH264VideoEncoder::WebrtcOpenH264VideoEncoder()
 
 WebrtcOpenH264VideoEncoder::~WebrtcOpenH264VideoEncoder() {
   if (encoder_) {
-    DestroySVCEncoder(encoder_);
+    WelsDestroySVCEncoder(encoder_);
   }
 }
 
@@ -106,12 +106,12 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
     uint32_t maxPayloadSize) {
   max_payload_size_ = maxPayloadSize;
 
-  int rv = CreateSVCEncoder(&encoder_);
+  int rv = WelsCreateSVCEncoder(&encoder_);
   if (rv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
 
-  SVCEncodingParam param;
+  SEncParamExt param;
   memset(&param, 0, sizeof(param));
 
   MOZ_MTLOG(ML_INFO, "Initializing encoder at "
@@ -128,7 +128,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
   param.iTemporalLayerNum = 1;
   param.iSpatialLayerNum = 1;
   // TODO(ekr@rtfm.com). Scary conversion from unsigned char to float below.
-  param.fFrameRate = codecSettings->maxFramerate;
+  param.fMaxFrameRate = codecSettings->maxFramerate;
   param.iInputCsp = videoFormatI420;
 
   // Set up layers. Currently we have one layer.
@@ -136,16 +136,15 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
 
   layer->iVideoWidth = codecSettings->width;
   layer->iVideoHeight = codecSettings->height;
-  layer->iQualityLayerNum = 1;
   layer->iSpatialBitrate = param.iTargetBitrate;
-  layer->fFrameRate = param.fFrameRate;
+  layer->fFrameRate = param.fMaxFrameRate;
 
   // Based on guidance from Cisco.
   layer->sSliceCfg.sSliceArgument.uiSliceMbNum[0] = 1000;
   layer->sSliceCfg.sSliceArgument.uiSliceNum = 1;
   layer->sSliceCfg.sSliceArgument.uiSliceSizeConstraint = 1000;
 
-  rv = encoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
+  rv = encoder_->InitializeExt(&param);
   if (rv)
     return WEBRTC_VIDEO_CODEC_MEMORY;
 
@@ -197,42 +196,37 @@ void WebrtcOpenH264VideoEncoder::Encode_w(
   src.iPicWidth = inputImage->width();
   src.iPicHeight = inputImage->height();
 
-  const SSourcePicture* pics = &src;
-
   PRIntervalTime t0 = PR_IntervalNow();
-  int type = encoder_->EncodeFrame2(&pics, 1, &encoded);
+  int result = encoder_->EncodeFrame(&src, &encoded);
   PRIntervalTime t1 = PR_IntervalNow();
 
   MOZ_MTLOG(ML_DEBUG, "Encoding time: " << PR_IntervalToMilliseconds(
       t1 - t0) << "ms");
 
-  // Translate int to enum
-  switch (type) {
-    case videoFrameTypeIDR:
-    case videoFrameTypeI:
-    case videoFrameTypeP:
+  switch (result) {
+    case cmResultSuccess:
       {
         ScopedDeletePtr<EncodedFrame> encoded_frame(
-            EncodedFrame::Create(encoded,
-                                 inputImage->width(),
-                                 inputImage->height(),
-                                 inputImage->timestamp(),
-                                 frame_type));
+          EncodedFrame::Create(encoded,
+                               inputImage->width(),
+                               inputImage->height(),
+                               inputImage->timestamp(),
+                               frame_type));
         callback_->Encoded(encoded_frame->image(), NULL, NULL);
       }
-      break;
-    case videoFrameTypeSkip:
-      //can skip the call back since not actual bit stream will be generated
-      break;
-    case videoFrameTypeIPMixed://this type is currently not suppported
-    case videoFrameTypeInvalid:
-      MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << type);
-      break;
+
+    case cmInitParaError:
+    case cmMallocMemeError:
+    case cmUnkonwReason:
+        MOZ_MTLOG(ML_ERROR, "Couldn't encode frame. Error = " << result);
+        break;
+
     default:
       // The API is defined as returning a type.
       MOZ_CRASH();
       break;
   }
+
   delete inputImage;
   return;
 }
@@ -284,7 +278,7 @@ int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
       return WEBRTC_VIDEO_CODEC_ERROR;
     }
   }
-  
+
   //update framerate
   float newFrameRate = static_cast<float>(frameRate);
   rv = encoder_->SetOption(ENCODER_OPTION_FRAME_RATE, &newFrameRate);
@@ -294,7 +288,7 @@ int32_t WebrtcOpenH264VideoEncoder::SetRates(uint32_t newBitRate,
     MOZ_MTLOG(ML_ERROR, "Error in Setting Encoder Frame Rate: ReturnValue: " << rv);
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
-  
+
   return WEBRTC_VIDEO_CODEC_OK;
 }
 
@@ -315,14 +309,14 @@ WebrtcOpenH264VideoDecoder::WebrtcOpenH264VideoDecoder()
 
 WebrtcOpenH264VideoDecoder::~WebrtcOpenH264VideoDecoder() {
   if (decoder_) {
-    DestroyDecoder(decoder_);
+    WelsDestroyDecoder(decoder_);
   }
 }
 
 int32_t WebrtcOpenH264VideoDecoder::InitDecode(
     const webrtc::VideoCodec* codecSettings,
     int32_t numberOfCores) {
-  long rv = CreateDecoder (&decoder_);
+  long rv = WelsCreateDecoder (&decoder_);
   if (rv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -334,7 +328,7 @@ int32_t WebrtcOpenH264VideoDecoder::InitDecode(
   param.uiEcActiveFlag = 1; // Error concealment on.
   param.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_DEFAULT;
 
-  long lrv = decoder_->Initialize(&param, INIT_TYPE_PARAMETER_BASED);
+  long lrv = decoder_->Initialize(&param);
   if (lrv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -369,17 +363,11 @@ int32_t WebrtcOpenH264VideoDecoder::Decode(
   int ystride;
   int uvstride;
 
-  if (decoded.eBufferProperty == BUFFER_HOST) {
-    width = decoded.UsrData.sSystemBuffer.iWidth;
-    height = decoded.UsrData.sSystemBuffer.iHeight;
-    ystride = decoded.UsrData.sSystemBuffer.iStride[0];
-    uvstride = decoded.UsrData.sSystemBuffer.iStride[1];
-  } else {
-    // TODO(ekr@rtfm.com): How can this happen
-    MOZ_CRASH();
-    width = decoded.UsrData.sVideoBuffer.iSurfaceWidth;
-    height = decoded.UsrData.sVideoBuffer.iSurfaceHeight;
-  }
+  width = decoded.UsrData.sSystemBuffer.iWidth;
+  height = decoded.UsrData.sSystemBuffer.iHeight;
+  ystride = decoded.UsrData.sSystemBuffer.iStride[0];
+  uvstride = decoded.UsrData.sSystemBuffer.iStride[1];
+
   int len = width * height;
 
   if (len) {
