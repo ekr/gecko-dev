@@ -96,7 +96,7 @@ WebrtcOpenH264VideoEncoder::WebrtcOpenH264VideoEncoder()
 
 WebrtcOpenH264VideoEncoder::~WebrtcOpenH264VideoEncoder() {
   if (encoder_) {
-    DestroySVCEncoder(encoder_);
+    WelsDestroySVCEncoder(encoder_);
   }
 }
 
@@ -106,7 +106,7 @@ int32_t WebrtcOpenH264VideoEncoder::InitEncode(
     uint32_t maxPayloadSize) {
   max_payload_size_ = maxPayloadSize;
 
-  int rv = CreateSVCEncoder(&encoder_);
+  int rv = WelsCreateSVCEncoder(&encoder_);
   if (rv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
@@ -309,14 +309,14 @@ WebrtcOpenH264VideoDecoder::WebrtcOpenH264VideoDecoder()
 
 WebrtcOpenH264VideoDecoder::~WebrtcOpenH264VideoDecoder() {
   if (decoder_) {
-    DestroyDecoder(decoder_);
+    WelsDestroyDecoder(decoder_);
   }
 }
 
 int32_t WebrtcOpenH264VideoDecoder::InitDecode(
     const webrtc::VideoCodec* codecSettings,
     int32_t numberOfCores) {
-  long rv = CreateDecoder (&decoder_);
+  long rv = WelsCreateDecoder (&decoder_);
   if (rv) {
     return WEBRTC_VIDEO_CODEC_ERROR;
   }
