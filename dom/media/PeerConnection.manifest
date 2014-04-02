@@ -13,3 +13,5 @@ contract @mozilla.org/dom/rtcsessiondescription;1 {1775081b-b62d-4954-8ffe-a067b
 contract @mozilla.org/dom/peerconnectionmanager;1 {7293e901-2be3-4c02-b4bd-cbef6fc24f78}
 contract @mozilla.org/dom/rtcstatsreport;1 {7fe6e18b-0da3-4056-bf3b-440ef3809e06}
 contract @mozilla.org/dom/rtcidentityassertion;1 {1abc7499-3c54-43e0-bd60-686e2703f072}
+
+category command-line-handler m-videobenchmark @mozilla.org/videobenchmark;1
