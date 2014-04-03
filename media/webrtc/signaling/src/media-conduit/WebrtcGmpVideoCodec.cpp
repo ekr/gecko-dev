@@ -7,7 +7,9 @@
 #include <iostream>
 #include <vector>
 
+#ifndef WIN32
 #include <sys/time.h>
+#endif
 
 #include <mozilla/Scoped.h>
 #include "VideoConduit.h"
