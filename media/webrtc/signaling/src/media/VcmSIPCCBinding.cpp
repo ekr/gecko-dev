@@ -2220,33 +2220,6 @@ int vcmTxStart(cc_mcapid_t mcap_id,
 }
 
 
-/*
- * Add an external encoder, maybe...
- */
-static int vcmEnsureExternalCodec(
-    const mozilla::RefPtr<mozilla::VideoSessionConduit>& conduit,
-    mozilla::VideoCodecConfig* config,
-    bool send)
-{
-  MediaConduitErrorCode err = kMediaConduitNoError;
-
-  if (config->mName == "I420") {
-    if (send) {
-      conduit->SetExternalSendCodec(config->mType,
-                                    mozilla::GmpVideoCodec::CreateEncoder());
-    } else {
-      conduit->SetExternalRecvCodec(config->mType,
-                                    mozilla::GmpVideoCodec::CreateDecoder());
-    }
-  }
-
-  if (err != kMediaConduitNoError) {
-    return VCM_ERROR;
-  }
-
-  return 0;
-}
-
 /**
  *  start tx stream
  *  Same concept as vcmTxStart but for ICE/PeerConnection-based flows
@@ -3000,6 +2973,33 @@ int vcmGetILBCMode()
 }
 
 } // extern "C"
+
+/*
+ * Add an external encoder, maybe...
+ */
+static int vcmEnsureExternalCodec(
+    const mozilla::RefPtr<mozilla::VideoSessionConduit>& conduit,
+    mozilla::VideoCodecConfig* config,
+    bool send)
+{
+  MediaConduitErrorCode err = kMediaConduitNoError;
+
+  if (config->mName == "I420") {
+    if (send) {
+      conduit->SetExternalSendCodec(config->mType,
+                                    mozilla::GmpVideoCodec::CreateEncoder());
+    } else {
+      conduit->SetExternalRecvCodec(config->mType,
+                                    mozilla::GmpVideoCodec::CreateDecoder());
+    }
+  }
+
+  if (err != kMediaConduitNoError) {
+    return VCM_ERROR;
+  }
+
+  return 0;
+}
 
 static mozilla::RefPtr<TransportFlow>
 vcmCreateTransportFlow(sipcc::PeerConnectionImpl *pc, int level, bool rtcp,
