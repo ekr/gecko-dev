@@ -267,19 +267,11 @@ GeckoChildProcessHost::PrepareLaunch()
 void
 GeckoChildProcessHost::CacheGreDir()
 {
-  // PerformAysncLaunchInternal/GetPathToBinary may be called on the IO thread,
-  // and they want to use the directory service, which needs to happen on the
-  // main thread (in the event that its implemented in JS). So we grab
-  // NS_GRE_DIR here and stash it.
+  if (sGreDirCached) {
+    return;
+  }
 
-#ifdef MOZ_WIDGET_GONK
-  // Apparently, this ASSERT should be present on all platforms. Currently,
-  // this assert causes mochitest failures on the Mac platform if its left in.
-
-  // B2G overrides the directory service in JS, so this needs to be called
-  // on the main thread.
   MOZ_ASSERT(NS_IsMainThread());
-#endif
 
   if (ShouldHaveDirectoryService()) {
     nsCOMPtr<nsIProperties> directoryService(do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
