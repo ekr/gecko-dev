@@ -11,7 +11,6 @@
 
 #include "mozilla/dom/ContentParent.h"
 #include "mozilla/dom/ContentChild.h"
-#include "mozilla/ipc/GeckoChildProcessHost.h"
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Attributes.h"
@@ -3834,8 +3833,6 @@ XREMain::XRE_mainRun()
 #endif
 
 #endif
-
-  mozilla::ipc::GeckoChildProcessHost::CacheGreDir();
 
   if (mStartOffline) {
     nsCOMPtr<nsIIOService2> io (do_GetService("@mozilla.org/network/io-service;1"));
