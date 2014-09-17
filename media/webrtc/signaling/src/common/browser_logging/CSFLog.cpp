@@ -44,6 +44,7 @@ PRLogModuleInfo *GetWebRTCLogInfo()
   return gWebRTCLogModuleInfo;
 }
 
+#ifdef KEEP_SIPCC
 extern "C" {
   void CSFLogRegisterThread(const cprThread_t thread);
   void CSFLogUnregisterThread(const cprThread_t thread);
@@ -92,7 +93,11 @@ void CSFLogUnregisterThread(const cprThread_t thread) {
   PR_RWLock_Unlock(maplock);
 }
 
+#endif  // KEEP_SIPCC
 const char *CSFCurrentThreadName() {
+#ifndef KEEP_SIPCC
+  return "[NOTHREAD]";
+#else
   const char *name = nullptr;
 #ifdef WIN32
   thread_key_t key = GetCurrentThreadId();
@@ -106,6 +111,7 @@ const char *CSFCurrentThreadName() {
   }
   PR_RWLock_Unlock(maplock);
   return name;
+#endif // KEEP_SIPCC
 }
 
 #ifdef OS_MACOSX
@@ -119,6 +125,7 @@ bool init_pthread_getname() {
 }
 static bool have_pthread_getname_np = init_pthread_getname();
 #endif
+
 
 void CSFLogV(CSFLogLevel priority, const char* sourceFile, int sourceLine, const char* tag , const char* format, va_list args)
 {

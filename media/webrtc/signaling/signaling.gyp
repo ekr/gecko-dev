@@ -329,7 +329,6 @@
         './src/sipcc/cpr/include/cpr_strings.h',
         './src/sipcc/cpr/include/cpr_threads.h',
         './src/sipcc/cpr/include/cpr_time.h',
-        './src/sipcc/cpr/include/cpr_timers.h',
         './src/sipcc/cpr/include/cpr_types.h',
         './src/sipcc/cpr/common/cpr_ipc.c',
         './src/sipcc/cpr/common/cpr_string.c',
@@ -520,36 +519,37 @@
           ],
 
           'sources': [
-            # SIPSTACK
-            './src/sipcc/core/sipstack/sip_platform_task.c',
-
-            # PLAT
-            './src/sipcc/plat/common/dns_utils.c',
-            #'./src/sipcc/plat/darwin/netif.c',
-            './src/sipcc/plat/darwin/plat_api_stub.c',
-            #'./src/sipcc/plat/unix-common/random.c',
-
-            # CPR
-            './src/sipcc/cpr/darwin/cpr_darwin_assert.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_errno.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_errno.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_in.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_init.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_private.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_rand.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_socket.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_socket.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_stdio.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_stdio.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_string.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_string.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_strings.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_threads.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_time.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_timers.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_timers_using_select.c',
-            './src/sipcc/cpr/darwin/cpr_darwin_tst.h',
-            './src/sipcc/cpr/darwin/cpr_darwin_types.h',
+          # COMMENT OUT FOR SIPCC
+#    # SIPSTACK
+#    './src/sipcc/core/sipstack/sip_platform_task.c',
+# 
+#    # PLAT
+#    './src/sipcc/plat/common/dns_utils.c',
+#    #'./src/sipcc/plat/darwin/netif.c',
+#    './src/sipcc/plat/darwin/plat_api_stub.c',
+#    #'./src/sipcc/plat/unix-common/random.c',
+# 
+#    # CPR
+#    './src/sipcc/cpr/darwin/cpr_darwin_assert.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_errno.c',
+#    './src/sipcc/cpr/darwin/cpr_darwin_errno.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_in.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_init.c',
+#    './src/sipcc/cpr/darwin/cpr_darwin_private.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_rand.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_socket.c',
+#    './src/sipcc/cpr/darwin/cpr_darwin_socket.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_stdio.c',
+#    './src/sipcc/cpr/darwin/cpr_darwin_stdio.h',
+    './src/sipcc/cpr/darwin/cpr_darwin_string.c',
+    './src/sipcc/cpr/darwin/cpr_darwin_string.h',
+    './src/sipcc/cpr/darwin/cpr_darwin_strings.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_threads.c',
+#    './src/sipcc/cpr/darwin/cpr_darwin_time.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_timers.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_timers_using_select.c',
+#    './src/sipcc/cpr/darwin/cpr_darwin_tst.h',
+#    './src/sipcc/cpr/darwin/cpr_darwin_types.h',
           ],
 
 
