@@ -245,7 +245,6 @@ PeerConnectionImpl::WrapObject(JSContext* aCx)
 #endif
 
 struct PeerConnectionImpl::Internal {
-  CSF::CC_CallPtr mCall;
 };
 
 PeerConnectionImpl::PeerConnectionImpl(const GlobalObject* aGlobal)
@@ -592,11 +591,12 @@ PeerConnectionImpl::Initialize(PeerConnectionObserver& aObserver,
   MOZ_ASSERT(pcctx);
   STAMP_TIMECARD(mTimeCard, "Done Initializing PC Ctx");
 
-  mInternal->mCall = pcctx->createCall();
-  if (!mInternal->mCall.get()) {
-    CSFLogError(logTag, "%s: Couldn't Create Call Object", __FUNCTION__);
-    return NS_ERROR_FAILURE;
-  }
+  // EKR: REMOVED
+  // mInternal->mCall = pcctx->createCall();
+  //   if (!mInternal->mCall.get()) {
+  //    CSFLogError(logTag, "%s: Couldn't Create Call Object", __FUNCTION__);
+  //     return NS_ERROR_FAILURE;
+  //   }
 
   IceConfiguration converted;
   if (aRTCConfiguration) {
@@ -629,7 +629,8 @@ PeerConnectionImpl::Initialize(PeerConnectionObserver& aObserver,
   }
 
   // Store under mHandle
-  mInternal->mCall->setPeerConnection(mHandle);
+  // TODO: REMOVED
+  // mInternal->mCall->setPeerConnection(mHandle);
   PeerConnectionCtx::GetInstance()->mPeerConnections[mHandle] = this;
 
   STAMP_TIMECARD(mTimeCard, "Generating DTLS Identity");
@@ -856,13 +857,15 @@ PeerConnectionImpl::CreateDataChannel(const nsAString& aLabel,
 
   CSFLogDebug(logTag, "%s: making DOMDataChannel", __FUNCTION__);
 
+#ifdef KEEP_SIPCC
   if (!mHaveDataStream) {
     // XXX stream_id of 0 might confuse things...
-    if (mInternal->mCall->addStream(0, 2, DATA)) {
-      return NS_ERROR_FAILURE;
+     if (mInternal->mCall->addStream(0, 2, DATA)) {
+       return NS_ERROR_FAILURE;
     }
     mHaveDataStream = true;
   }
+#endif
   nsIDOMDataChannel *retval;
   rv = NS_NewDOMDataChannel(dataChannel.forget(), mWindow, &retval);
   if (NS_FAILED(rv)) {
@@ -987,22 +990,27 @@ PeerConnectionImpl::CreateOffer(const SipccOfferOptions& aOptions)
 
   STAMP_TIMECARD(mTimeCard, "Create Offer");
 
-  cc_media_options_t* cc_options = aOptions.build();
-  NS_ENSURE_TRUE(cc_options, NS_ERROR_UNEXPECTED);
+  // EKR: REMOVED
+  // cc_media_options_t* cc_options = aOptions.build();
+  // NS_ENSURE_TRUE(cc_options, NS_ERROR_UNEXPECTED);
 
-  cc_int32_t error = mInternal->mCall->createOffer(cc_options, mTimeCard);
+  // EKR: REMOVED
+  // cc_int32_t error = mInternal->mCall->createOffer(cc_options, mTimeCard);
 
+#ifdef KEEP_SIPCC
   if (error) {
     std::string error_string;
-    mInternal->mCall->getErrorString(&error_string);
-    CSFLogError(logTag, "%s: pc = %s, error = %s",
-                __FUNCTION__, mHandle.c_str(), error_string.c_str());
-    pco->OnCreateOfferError(error, ObString(error_string.c_str()), rv);
+    // EKR: REMOVED
+    // mInternal->mCall->getErrorString(&error_string);
+    // CSFLogError(logTag, "%s: pc = %s, error = %s",
+    //            __FUNCTION__, mHandle.c_str(), error_string.c_str());
+    // pco->OnCreateOfferError(error, ObString(error_string.c_str()), rv);
   } else {
     std::string sdp;
     mInternal->mCall->getLocalSdp(&sdp);
     pco->OnCreateOfferSuccess(ObString(sdp.c_str()), rv);
   }
+#endif
 
   UpdateSignalingState();
   return NS_OK;
@@ -1020,7 +1028,7 @@ PeerConnectionImpl::CreateAnswer()
   }
 
   STAMP_TIMECARD(mTimeCard, "Create Answer");
-
+#ifdef KEEP_SIPCC
   cc_int32_t error = mInternal->mCall->createAnswer(mTimeCard);
 
   if (error) {
@@ -1034,7 +1042,7 @@ PeerConnectionImpl::CreateAnswer()
     mInternal->mCall->getLocalSdp(&sdp);
     pco->OnCreateAnswerSuccess(ObString(sdp.c_str()), rv);
   }
-
+#endif
   UpdateSignalingState();
   return NS_OK;
 }
@@ -1074,6 +1082,7 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP)
 #endif
 
   mLocalRequestedSDP = aSDP;
+#ifdef KEEP_SIPCC
   cc_int32_t error  = mInternal->mCall->setLocalDescription(
       (cc_jsep_action_t)aAction,
       mLocalRequestedSDP, mTimeCard);
@@ -1090,7 +1099,7 @@ PeerConnectionImpl::SetLocalDescription(int32_t aAction, const char* aSDP)
     pco->OnSetLocalDescriptionSuccess(rv);
     StartTrickle();
   }
-
+#endif
   ClearSdpParseErrorMessages();
 
   UpdateSignalingState();
@@ -1142,7 +1151,7 @@ PeerConnectionImpl::SetRemoteDescription(int32_t action, const char* aSDP)
   STAMP_TIMECARD(mTimeCard, "Set Remote Description");
 
   mRemoteRequestedSDP = aSDP;
-
+#ifdef KEEP_SIPCC
   cc_int32_t error = mInternal->mCall->setRemoteDescription(
                                          (cc_jsep_action_t)action,
                                          mRemoteRequestedSDP, mTimeCard);
@@ -1161,7 +1170,7 @@ PeerConnectionImpl::SetRemoteDescription(int32_t action, const char* aSDP)
     startCallTelem();
 #endif
   }
-
+#endif
   ClearSdpParseErrorMessages();
 
   UpdateSignalingState();
@@ -1251,6 +1260,7 @@ PeerConnectionImpl::AddIceCandidate(const char* aCandidate, const char* aMid, un
   }
 #endif
 
+#ifdef KEEP_SIPCC
   cc_int32_t error = mInternal->mCall->addICECandidate(aCandidate, aMid, aLevel, mTimeCard);
 
   if (error) {
@@ -1267,7 +1277,7 @@ PeerConnectionImpl::AddIceCandidate(const char* aCandidate, const char* aMid, un
     pco->OnAddIceCandidateSuccess(rv);
     mInternal->mCall->getRemoteSdp(&mRemoteSDP);
   }
-
+#endif
   UpdateSignalingState();
   return NS_OK;
 }
@@ -1353,8 +1363,9 @@ PeerConnectionImpl::CloseStreams() {
   PC_AUTO_ENTER_API_CALL(false);
 
   CSFLogInfo(logTag, "%s: Ending associated call", __FUNCTION__);
-
+#ifdef KEEP_SIPCC
   mInternal->mCall->endCall();
+#endif
   return NS_OK;
 }
 
@@ -1477,6 +1488,7 @@ PeerConnectionImpl::AddTrack(MediaStreamTrack& aTrack,
     aMediaStream.AddPrincipalChangeObserver(this);
   }
 
+#ifdef KEEP_SIPCC
   // TODO(ekr@rtfm.com): these integers should be the track IDs
   if (hints & DOMMediaStream::HINT_CONTENTS_AUDIO) {
     if (mInternal->mCall->addStream(stream_id, 0, AUDIO)) {
@@ -1499,7 +1511,7 @@ PeerConnectionImpl::AddTrack(MediaStreamTrack& aTrack,
     }
     mNumVideoStreams++;
   }
-
+#endif
   return NS_OK;
 }
 
@@ -1536,7 +1548,7 @@ PeerConnectionImpl::RemoveTrack(MediaStreamTrack& aTrack) {
   if (num != mMedia->LocalStreamsLength()) {
     aMediaStream.RemovePrincipalChangeObserver(this);
   }
-
+#ifdef KEEP_SIPCC
   if (hints & DOMMediaStream::HINT_CONTENTS_AUDIO) {
     if (mInternal->mCall->removeStream(stream_id, 0, AUDIO)) {
       std::string error_string;
@@ -1560,7 +1572,7 @@ PeerConnectionImpl::RemoveTrack(MediaStreamTrack& aTrack) {
     MOZ_ASSERT(mNumVideoStreams > 0);
     mNumVideoStreams--;
   }
-
+#endif
   return NS_OK;
 }
 
@@ -1856,7 +1868,7 @@ PeerConnectionImpl::CloseInt()
   // transitioned to connected. As a bonus, this allows us to detect race
   // conditions where a stats dispatch happens right as the PC closes.
   RecordLongtermICEStatistics();
-
+#ifdef KEEP_SIPCC
   if (mInternal->mCall) {
     CSFLogInfo(logTag, "%s: Closing PeerConnectionImpl %s; "
                "ending call", __FUNCTION__, mHandle.c_str());
@@ -1871,7 +1883,7 @@ PeerConnectionImpl::CloseInt()
     mDataConnection = nullptr; // it may not go away until the runnables are dead
   }
 #endif
-
+#endif
   ShutdownMedia();
 
   // DataConnection will need to stay alive until all threads/runnables exit
@@ -1946,6 +1958,7 @@ PeerConnectionImpl::SetSignalingState_m(PCImplSignalingState aSignalingState)
 
 void
 PeerConnectionImpl::UpdateSignalingState() {
+#ifdef KEEP_SIPCC
   fsmdef_states_t state = mInternal->mCall->getFsmState();
   /*
    * While the fsm_states_t (FSM_DEF_*) constants are a proper superset
@@ -1969,6 +1982,7 @@ PeerConnectionImpl::UpdateSignalingState() {
                 state,
                 mInternal->mCall->fsmStateToString(state).c_str());
   }
+#endif
 }
 
 bool
@@ -2125,7 +2139,7 @@ void PeerConnectionImpl::FoundIceCandidate(const std::string& candidate,
   // SIPCC choose for us? If the latter, we'll need to make it an outparam or
   // something.
   std::string mid;
-
+#ifdef KEEP_SIPCC
   cc_int32_t error = mInternal->mCall->foundICECandidate(candidate,
                                                          mid,
                                                          level,
@@ -2145,6 +2159,7 @@ void PeerConnectionImpl::FoundIceCandidate(const std::string& candidate,
     mInternal->mCall->getLocalSdp(&mLocalSDP);
     SendLocalIceCandidateToContent(level, mid, candidate);
   }
+#endif
   UpdateSignalingState();
 }
 

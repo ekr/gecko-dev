@@ -105,7 +105,7 @@ class PeerConnectionCtx : public CSF::CC_Observer {
   std::map<const std::string, PeerConnectionImpl *> mPeerConnections;
 
   PeerConnectionCtx() :  mSipccState(mozilla::dom::PCImplSipccState::Idle),
-                         mCCM(nullptr), mDevice(nullptr), mGMPReady(false) {}
+                         mGMPReady(false) {}
   // This is a singleton, so don't copy construct it, etc.
   PeerConnectionCtx(const PeerConnectionCtx& other) MOZ_DELETE;
   void operator=(const PeerConnectionCtx& other) MOZ_DELETE;
@@ -138,8 +138,6 @@ private:
 
   // SIPCC objects
   mozilla::dom::PCImplSipccState mSipccState;  // TODO(ekr@rtfm.com): refactor this out? What does it do?
-  CSF::CallControlManagerPtr mCCM;
-  CSF::CC_DevicePtr mDevice;
 
   // We cannot form offers/answers properly until the Gecko Media Plugin stuff
   // has been initted, which is a complicated mess of thread dispatches,

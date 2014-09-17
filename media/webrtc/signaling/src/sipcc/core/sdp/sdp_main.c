@@ -1317,7 +1317,10 @@ void sdp_parse_error(const char *peerconnection, const char *format, ...) {
     va_end(ap);
 
     CSFLogError("SDP Parse", "SDP Parse Error %s, pc %s", fs.buffer, peerconnection);
+#ifdef KEEP_SIPCC
+    abort();
     vcmOnSdpParseError(peerconnection, fs.buffer);
+#endif
 
     flex_string_free(&fs);
 }
