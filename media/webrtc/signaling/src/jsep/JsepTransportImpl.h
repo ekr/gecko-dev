@@ -16,23 +16,29 @@ namespace jsep {
 
 class JsepDtlsTransportImpl : public JsepDtlsTransport {
  public:
-  JsepDtlsTransportImpl() {}
+  JsepDtlsTransportImpl()
+      : mRole(kJsepDtlsInvalidRole) {}
+
   virtual ~JsepDtlsTransportImpl() {}
 
   virtual const SdpFingerprintAttributeList& fingerprints() const MOZ_OVERRIDE {
     return mFingerprints;
+  }
+  virtual Role role() const MOZ_OVERRIDE {
+    return mRole;
   }
 
  private:
   friend JsepSessionImpl;
 
   SdpFingerprintAttributeList mFingerprints;
-
+  Role mRole;
 };
 
 class JsepIceTransportImpl : public JsepIceTransport {
  public:
   JsepIceTransportImpl() {}
+
   virtual ~JsepIceTransportImpl() {}
 
   const std::string& ufrag() const MOZ_OVERRIDE { return mUfrag; }

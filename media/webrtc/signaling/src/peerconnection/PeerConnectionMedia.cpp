@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+#include <ostream>
 #include <string>
 
 #include "CSFLog.h"
@@ -9,12 +10,16 @@
 
 #include "nricectx.h"
 #include "nricemediastream.h"
+#include "MediaPipelineFactory.h"
 #include "PeerConnectionImpl.h"
 #include "PeerConnectionMedia.h"
 #include "AudioConduit.h"
 #include "VideoConduit.h"
 #include "runnable_utils.h"
+#include "transportlayerice.h"
 #include "transportlayerdtls.h"
+#include "signaling/src/jsep/JsepSession.h"
+#include "signaling/src/jsep/JsepTransport.h"
 
 #ifdef MOZILLA_INTERNAL_API
 #include "MediaStreamList.h"
@@ -22,6 +27,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/dom/RTCStatsReportBinding.h"
 #endif
+
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -195,6 +201,7 @@ PeerConnectionImpl* PeerConnectionImpl::CreatePeerConnection()
 PeerConnectionMedia::PeerConnectionMedia(PeerConnectionImpl *parent)
     : mParent(parent),
       mParentHandle(parent->GetHandle()),
+      mParentName(parent->GetName()),
       mIceCtx(nullptr),
       mDNSResolver(new mozilla::NrIceResolver()),
       mMainThread(mParent->GetMainThread()),
@@ -205,7 +212,7 @@ nsresult PeerConnectionMedia::Init(const std::vector<NrIceStunServer>& stun_serv
 {
   // TODO(ekr@rtfm.com): need some way to set not offerer later
   // Looks like a bug in the NrIceCtx API.
-  mIceCtx = NrIceCtx::Create("PC:" + mParent->GetName(), true);
+  mIceCtx = NrIceCtx::Create("PC:" + mParentName, true);
   if(!mIceCtx) {
     CSFLogError(logTag, "%s: Failed to create Ice Context", __FUNCTION__);
     return NS_ERROR_FAILURE;
@@ -276,7 +283,7 @@ PeerConnectionMedia::UpdateTransports(
     // suppress inside nICEr?
     RUN_ON_THREAD(GetSTSThread(),
                   WrapRunnable(RefPtr<PeerConnectionMedia>(this),
-                               &PeerConnectionMedia::UpdateIceMediaStream,
+                               &PeerConnectionMedia::UpdateIceMediaStream_s,
                                i,
                                transport->mComponents,
                                has_attrs,
@@ -296,6 +303,33 @@ PeerConnectionMedia::UpdateTransports(
                 NS_DISPATCH_NORMAL);
 
 }
+
+nsresult PeerConnectionMedia::UpdateMediaPipelines(
+    const mozilla::UniquePtr<mozilla::jsep::JsepSession>& session) {
+  size_t num_pairs = session->num_negotiated_track_pairs();
+  mozilla::MediaPipelineFactory factory(this);
+  const mozilla::jsep::JsepTrackPair* pair;
+
+  for (size_t i = 0; i < num_pairs; ++i) {
+    nsresult rv = session->negotiated_track_pair(i, &pair);
+    if (NS_FAILED(rv))
+      return rv;
+
+    if (pair->mSending) {
+      rv = factory.CreateMediaPipeline(session, *pair, pair->mSending);
+      if (NS_FAILED(rv))
+        return rv;
+    }
+    if (pair->mReceiving) {
+      rv = factory.CreateMediaPipeline(session, *pair, pair->mReceiving);
+      if (NS_FAILED(rv))
+        return rv;
+    }
+  }
+
+  return NS_OK;
+}
+
 void
 PeerConnectionMedia::StartIceChecks(
     const mozilla::UniquePtr<mozilla::jsep::JsepSession>& session) {
@@ -338,6 +372,8 @@ void
 PeerConnectionMedia::AddIceCandidate_s(const std::string& candidate,
                                        const std::string& mid,
                                        uint32_t level) {
+  // TODO(ekr@rtfm.com): Unfortunately, this goes into space
+  // in the period between SetRemote() and SetLocal().
   if (level >= mIceStreams.size()) {
     CSFLogError(logTag, "Couldn't process ICE candidate for bogus level %u",
                 level);
@@ -353,11 +389,6 @@ PeerConnectionMedia::AddIceCandidate_s(const std::string& candidate,
 }
 
 void
-PeerConnectionMedia::UpdateMediaPipelines(
-    const mozilla::UniquePtr<mozilla::jsep::JsepSession>& session) {
-}
-
-void
 PeerConnectionMedia::EnsureIceGathering() {
   if (mIceCtx->gathering_state() == NrIceCtx::ICE_CTX_GATHER_INIT) {
     mIceCtx->StartGathering();
@@ -365,17 +396,19 @@ PeerConnectionMedia::EnsureIceGathering() {
 }
 
 void
-PeerConnectionMedia::UpdateIceMediaStream(size_t index,
-                                          size_t components,
-                                          bool has_attrs,
-                                          const std::string& ufrag,
-                                          const std::string& password,
-                                          const std::vector<std::string>& candidates
-                                          ) {
+PeerConnectionMedia::UpdateIceMediaStream_s(size_t index,
+                                            size_t components,
+                                            bool has_attrs,
+                                            const std::string& ufrag,
+                                            const std::string& password,
+                                            const std::vector<std::string>&
+                                            candidates) {
+  CSFLogDebug(logTag, "%s: Creating ICE media stream=%u components=%u",
+              mParentHandle.c_str(), index, components);
   // TODO(ekr@rtfm.com): Handle changes like RTCP/MUX and BUNDLE.
   RefPtr<NrIceMediaStream> stream;
   if (mIceStreams.size() <= index) {
-    stream = mIceCtx->CreateStream((mParent->GetName()+": unknown").c_str(),
+    stream = mIceCtx->CreateStream((mParentName+": unknown").c_str(),
                             components);
     MOZ_ASSERT(stream); // TODO(ekr@rtfm.com): Check.
     stream->SetLevel(index);
@@ -663,13 +696,9 @@ PeerConnectionMedia::UpdateFilterFromRemoteDescription_m(
 }
 
 nsresult
-PeerConnectionMedia::AddRemoteStream(nsRefPtr<RemoteSourceStreamInfo> aInfo,
-  int *aIndex)
+PeerConnectionMedia::AddRemoteStream(nsRefPtr<RemoteSourceStreamInfo> aInfo)
 {
   ASSERT_ON_THREAD(mMainThread);
-  MOZ_ASSERT(aIndex);
-
-  *aIndex = mRemoteSourceStreams.Length();
 
   mRemoteSourceStreams.AppendElement(aInfo);
 

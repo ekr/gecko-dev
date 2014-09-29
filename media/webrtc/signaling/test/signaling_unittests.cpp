@@ -1214,6 +1214,8 @@ void CreateAnswer(uint32_t offerAnswerFlags,
                      kDefaultTimeout);
     ASSERT_EQ(signaling_state(), endState);
     if (!ignoreError) {
+      // TODO(ekr@rtfm.com): Now that ICE candidates are queued, this
+      // seems to happen in the wrong order.
       ASSERT_EQ(pObserver->state, TestObserver::stateSuccess);
     }
 
@@ -1337,6 +1339,7 @@ void CreateAnswer(uint32_t offerAnswerFlags,
     }
 
     const auto &pipelines = streamInfo->GetPipelines();
+
     auto it = pipelines.find(track);
     return (it == pipelines.end())? nullptr : it->second;
   }
@@ -1855,11 +1858,11 @@ public:
     a2_->CloseReceiveStreams();
 
     // Check caller video settings for remote pipeline
-    a1_->CheckMediaPipeline(0, 2, (fRtcpMux ? PIPELINE_RTCP_MUX : 0) |
+    a1_->CheckMediaPipeline(0, 1, (fRtcpMux ? PIPELINE_RTCP_MUX : 0) |
       PIPELINE_SEND | PIPELINE_VIDEO | rtcpFbFlags, frameRequestMethod);
 
     // Check callee video settings for remote pipeline
-    a2_->CheckMediaPipeline(0, 2, (fRtcpMux ? PIPELINE_RTCP_MUX : 0) |
+    a2_->CheckMediaPipeline(0, 1, (fRtcpMux ? PIPELINE_RTCP_MUX : 0) |
       PIPELINE_VIDEO | rtcpFbFlags, frameRequestMethod);
   }
 
@@ -2129,8 +2132,8 @@ TEST_F(SignalingTest, OfferAnswerNothingDisabledFullCycle)
               SHOULD_SENDRECV_AV, SHOULD_SENDRECV_AV);
   // verify the default codec priorities
   ASSERT_NE(a1_->getLocalDescription().find("UDP/TLS/RTP/SAVPF 109 9 0 8\r"), std::string::npos);
-  // verify that opus got selected
-  ASSERT_NE(a2_->getLocalDescription().find("UDP/TLS/RTP/SAVPF 109\r"), std::string::npos);
+  // verify that we echoed the same thing (as of SDParta we don't just pick one).
+  ASSERT_NE(a2_->getLocalDescription().find("UDP/TLS/RTP/SAVPF 109 9 0 8\r"), std::string::npos);;
 }
 
 // XXX reject streams has changed. Re-enable when we can stop() received stream
@@ -2389,8 +2392,8 @@ TEST_F(SignalingTest, FullCall)
     PIPELINE_LOCAL | PIPELINE_RTCP_MUX | PIPELINE_SEND :
     PIPELINE_LOCAL | PIPELINE_SEND);
 
-  // The first Remote pipeline gets stored at 1
-  a2_->CheckMediaPipeline(0, 1, (fRtcpMux ?  PIPELINE_RTCP_MUX : 0));
+  // The first Remote pipeline gets stored at 0
+  a2_->CheckMediaPipeline(0, 0, (fRtcpMux ?  PIPELINE_RTCP_MUX : 0));
 }
 
 TEST_F(SignalingTest, FullCallAudioOnly)
@@ -3307,7 +3310,7 @@ TEST_F(SignalingTest, AudioOnlyCalleeNoRtcpMux)
   a1_->CheckMediaPipeline(0, 0, PIPELINE_LOCAL | PIPELINE_SEND);
 
   // The first Remote pipeline gets stored at 1
-  a2_->CheckMediaPipeline(0, 1, 0);
+  a2_->CheckMediaPipeline(0, 0, 0);
 }
 
 
@@ -3444,11 +3447,11 @@ TEST_F(SignalingTest, FullCallAudioNoMuxVideoMux)
     PIPELINE_LOCAL | (fRtcpMux ? PIPELINE_RTCP_MUX : 0) | PIPELINE_SEND |
     PIPELINE_VIDEO);
 
-  // The first Remote pipeline gets stored at 1
-  a2_->CheckMediaPipeline(0, 1, 0);
+  // The first Remote pipeline gets stored at 0
+  a2_->CheckMediaPipeline(0, 0, 0);
 
   // Now check video mux.
-  a2_->CheckMediaPipeline(0, 2, (fRtcpMux ?  PIPELINE_RTCP_MUX : 0) |
+  a2_->CheckMediaPipeline(0, 1, (fRtcpMux ?  PIPELINE_RTCP_MUX : 0) |
     PIPELINE_VIDEO | PIPELINE_RTCP_NACK, VideoSessionConduit::FrameRequestPli);
 }
 

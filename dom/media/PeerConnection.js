@@ -833,7 +833,7 @@ RTCPeerConnection.prototype = {
   _addIceCandidate: function(cand) {
     this._impl.addIceCandidate(cand.candidate, cand.sdpMid || "",
                                (cand.sdpMLineIndex === null) ? 0 :
-                                 cand.sdpMLineIndex + 1);
+                                 cand.sdpMLineIndex);
   },
 
   addStream: function(stream) {
@@ -1207,7 +1207,7 @@ PeerConnectionObserver.prototype = {
           {
               candidate: candidate,
               sdpMid: mid,
-              sdpMLineIndex: level - 1
+              sdpMLineIndex: level
           }
       ));
     }

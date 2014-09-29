@@ -117,6 +117,94 @@ typedef PCObserverString ObString;
 
 static const char* logTag = "PeerConnectionImpl";
 
+
+// Getting exceptions back down from PCObserver is generally not harmful.
+namespace {
+class JSErrorResult : public ErrorResult
+{
+public:
+  ~JSErrorResult()
+  {
+#ifdef MOZILLA_INTERNAL_API
+    WouldReportJSException();
+    if (IsJSException()) {
+      MOZ_ASSERT(NS_IsMainThread());
+      AutoJSContext cx;
+      Optional<JS::Handle<JS::Value> > value(cx);
+      StealJSException(cx, &value.Value());
+    }
+#endif
+  }
+};
+
+// The WrapRunnable() macros copy passed-in args and passes them to the function
+// later on the other thread. ErrorResult cannot be passed like this because it
+// disallows copy-semantics.
+//
+// This WrappableJSErrorResult hack solves this by not actually copying the
+// ErrorResult, but creating a new one instead, which works because we don't
+// care about the result.
+//
+// Since this is for JS-calls, these can only be dispatched to the main thread.
+
+class WrappableJSErrorResult {
+public:
+  WrappableJSErrorResult() : isCopy(false) {}
+  WrappableJSErrorResult(WrappableJSErrorResult &other) : mRv(), isCopy(true) {}
+  ~WrappableJSErrorResult() {
+    if (isCopy) {
+      MOZ_ASSERT(NS_IsMainThread());
+    }
+  }
+  operator JSErrorResult &() { return mRv; }
+private:
+  JSErrorResult mRv;
+  bool isCopy;
+};
+}
+
+#ifdef MOZILLA_INTERNAL_API
+class TracksAvailableCallback : public DOMMediaStream::OnTracksAvailableCallback
+{
+public:
+  TracksAvailableCallback(DOMMediaStream::TrackTypeHints aTrackTypeHints,
+                          nsRefPtr<PeerConnectionObserver> aObserver)
+  : DOMMediaStream::OnTracksAvailableCallback(aTrackTypeHints)
+  , mObserver(aObserver) {}
+
+  virtual void NotifyTracksAvailable(DOMMediaStream* aStream) MOZ_OVERRIDE
+  {
+    MOZ_ASSERT(NS_IsMainThread());
+
+    // Start currentTime from the point where this stream was successfully
+    // returned.
+    aStream->SetLogicalStreamStartTime(aStream->GetStream()->GetCurrentTime());
+
+    CSFLogInfo(logTag, "Returning success for OnAddStream()");
+    // We are running on main thread here so we shouldn't have a race
+    // on this callback
+
+    nsTArray<nsRefPtr<MediaStreamTrack>> tracks;
+    aStream->GetTracks(tracks);
+    for (uint32_t i = 0; i < tracks.Length(); i++) {
+      JSErrorResult rv;
+      mObserver->OnAddTrack(*tracks[i], rv);
+      if (rv.Failed()) {
+        CSFLogError(logTag, ": OnAddTrack(%d) failed! Error: %d", i,
+                    rv.ErrorCode());
+      }
+    }
+    JSErrorResult rv;
+    mObserver->OnAddStream(*aStream, rv);
+    if (rv.Failed()) {
+      CSFLogError(logTag, ": OnAddStream() failed! Error: %d", rv.ErrorCode());
+    }
+  }
+private:
+  nsRefPtr<PeerConnectionObserver> mObserver;
+};
+#endif
+
 #ifdef MOZILLA_INTERNAL_API
 static nsresult InitNSSInContent()
 {
@@ -186,51 +274,6 @@ RTCStatsQuery::~RTCStatsQuery() {
 }
 
 #endif
-
-// Getting exceptions back down from PCObserver is generally not harmful.
-namespace {
-class JSErrorResult : public ErrorResult
-{
-public:
-  ~JSErrorResult()
-  {
-#ifdef MOZILLA_INTERNAL_API
-    WouldReportJSException();
-    if (IsJSException()) {
-      MOZ_ASSERT(NS_IsMainThread());
-      AutoJSContext cx;
-      Optional<JS::Handle<JS::Value> > value(cx);
-      StealJSException(cx, &value.Value());
-    }
-#endif
-  }
-};
-
-// The WrapRunnable() macros copy passed-in args and passes them to the function
-// later on the other thread. ErrorResult cannot be passed like this because it
-// disallows copy-semantics.
-//
-// This WrappableJSErrorResult hack solves this by not actually copying the
-// ErrorResult, but creating a new one instead, which works because we don't
-// care about the result.
-//
-// Since this is for JS-calls, these can only be dispatched to the main thread.
-
-class WrappableJSErrorResult {
-public:
-  WrappableJSErrorResult() : isCopy(false) {}
-  WrappableJSErrorResult(WrappableJSErrorResult &other) : mRv(), isCopy(true) {}
-  ~WrappableJSErrorResult() {
-    if (isCopy) {
-      MOZ_ASSERT(NS_IsMainThread());
-    }
-  }
-  operator JSErrorResult &() { return mRv; }
-private:
-  JSErrorResult mRv;
-  bool isCopy;
-};
-}
 
 NS_IMPL_ISUPPORTS0(PeerConnectionImpl)
 
@@ -953,22 +996,19 @@ PeerConnectionImpl::NotifyDataChannel(already_AddRefed<DataChannel> aChannel)
 NS_IMETHODIMP
 PeerConnectionImpl::CreateOffer(const RTCOfferOptions& aOptions)
 {
-#ifdef KEEP_SIPCC
   JsepOfferOptions options;
+#ifdef MOZILLA_INTERNAL_API
   if (aOptions.mOfferToReceiveAudio.WasPassed()) {
     options.mOfferToReceiveAudio =
-      mozilla::Some(aOptions.mOfferToReceiveAudio.Value());
+      mozilla::Some(size_t(aOptions.mOfferToReceiveAudio.Value()));
   }
 
   if (aOptions.mOfferToReceiveVideo.WasPassed()) {
     options.mOfferToReceiveVideo =
-      mozilla::Some(aOptions.mOfferToReceiveVideo.Value());
+        mozilla::Some(size_t(aOptions.mOfferToReceiveVideo.Value()));
   }
-  return CreateOffer(options);
-#else
-  MOZ_CRASH();
-  return NS_OK;
 #endif
+  return CreateOffer(options);
 }
 
 static void DeferredCreateOffer(const std::string& aPcHandle,
@@ -1003,6 +1043,8 @@ PeerConnectionImpl::CreateOffer(const JsepOfferOptions& aOptions)
     return NS_OK;
   }
 
+  CSFLogDebug(logTag, "CreateOffer()");
+
   STAMP_TIMECARD(mTimeCard, "Create Offer");
 
   std::string offer;
@@ -1036,6 +1078,7 @@ PeerConnectionImpl::CreateAnswer()
     return NS_OK;
   }
 
+  CSFLogDebug(logTag, "CreateAnswer()");
   STAMP_TIMECARD(mTimeCard, "Create Answer");
   JsepAnswerOptions options; // TODO(ekr@rtfm.com): actually set these
   std::string answer;
@@ -1204,10 +1247,64 @@ PeerConnectionImpl::SetRemoteDescription(int32_t action, const char* aSDP)
                 __FUNCTION__, mHandle.c_str(), error_string.c_str());
     pco->OnSetRemoteDescriptionError(error, ObString(error_string.c_str()), rv);
   } else {
-    mRemoteSDP = mRemoteRequestedSDP;
-    pco->OnSetRemoteDescriptionSuccess(rv);
+    // All the stream stuff is a mess here. We just have one stream
+    // but a pile of tracks.
+    // Step 1. Verify that we have a stream.
+    nsRefPtr<sipcc::RemoteSourceStreamInfo> info;
+    if (mMedia->RemoteStreamsLength() < 1) {
+      nsresult rv = CreateRemoteSourceStreamInfo(&info);
+      if (NS_FAILED(rv)) {
+        MOZ_CRASH();  // TODO(ekr@rtfm.com): How do we recover here? We don't
+                      // want mismatches.
+      }
+
+      rv = mMedia->AddRemoteStream(info);
+      if (NS_FAILED(rv)) {
+        MOZ_CRASH();  // TODO(ekr@rtfm.com): How do we recover here? We don't
+                      // want mismatches.
+      }
+    } else {
+      info = mMedia->GetRemoteStream(0);
+    }
+    DOMMediaStream* stream = info->GetMediaStream();
+
+    // Step 2. Add the tracks. Unfortunately, we only can really support
+    // two tracks, one audio and one video.
+    nsresult rv;
+    size_t num_tracks = mJsepSession->num_remote_tracks();
+    MOZ_ASSERT(num_tracks <= 2);
+    for (size_t i = 0; i < num_tracks; ++i) {
+      RefPtr<JsepMediaStreamTrack> track;
+      rv = mJsepSession->remote_track(i, &track);
+      if (NS_FAILED(rv)) {
+        MOZ_CRASH();  // TODO(ekr@rtfm.com): How do we recover here? We don't
+                      // want mismatches.
+      }
+      if (track->media_type() == mozilla::SdpMediaSection::kAudio) {
+        info->mTrackTypeHints |= DOMMediaStream::HINT_CONTENTS_AUDIO;
+      } else if (track->media_type() == mozilla::SdpMediaSection::kAudio) {
+        info->mTrackTypeHints |= DOMMediaStream::HINT_CONTENTS_AUDIO;
+      } else {
+        // Data channel?
+      }
+    }
+
+    // Notify about track availability.
+    // TODO(ekr@rtfm.com): Suppress on renegotiation when no change.
+    JSErrorResult jrv;
+
 #ifdef MOZILLA_INTERNAL_API
-    startCallTelem();
+    TracksAvailableCallback* tracksAvailableCallback =
+      new TracksAvailableCallback(info->mTrackTypeHints, pco);
+    stream->OnTracksAvailable(tracksAvailableCallback);
+#else
+    pco->OnAddStream(stream, jrv);
+#endif
+    mRemoteSDP = mRemoteRequestedSDP;
+    pco->OnSetRemoteDescriptionSuccess(jrv);
+#ifdef MOZILLA_INTERNAL_API
+    // TODO(ekr@rtfm.com): This is crashing.
+    // startCallTelem();
 #endif
   }
 
@@ -1282,6 +1379,8 @@ PeerConnectionImpl::AddIceCandidate(const char* aCandidate, const char* aMid, un
 
   STAMP_TIMECARD(mTimeCard, "Add Ice Candidate");
 
+  CSFLogDebug(logTag, "AddIceCandidate: %s", aCandidate);
+
 #ifdef MOZILLA_INTERNAL_API
   // When remote candidates are added before our ICE ctx is up and running
   // (the transition to New is async through STS, so this is not impossible),
@@ -1297,7 +1396,6 @@ PeerConnectionImpl::AddIceCandidate(const char* aCandidate, const char* aMid, un
     }
   }
 #endif
-
   nsresult res = mJsepSession->AddIceCandidate(aCandidate, aMid, aLevel);
 
   if (NS_SUCCEEDED(res)) {
@@ -1317,87 +1415,6 @@ PeerConnectionImpl::AddIceCandidate(const char* aCandidate, const char* aMid, un
 
   UpdateSignalingState();
   return NS_OK;
-}
-
-#ifdef MOZILLA_INTERNAL_API
-class TracksAvailableCallback : public DOMMediaStream::OnTracksAvailableCallback
-{
-public:
-  TracksAvailableCallback(DOMMediaStream::TrackTypeHints aTrackTypeHints,
-                          nsRefPtr<PeerConnectionObserver> aObserver)
-  : DOMMediaStream::OnTracksAvailableCallback(aTrackTypeHints)
-  , mObserver(aObserver) {}
-
-  virtual void NotifyTracksAvailable(DOMMediaStream* aStream) MOZ_OVERRIDE
-  {
-    MOZ_ASSERT(NS_IsMainThread());
-
-    // Start currentTime from the point where this stream was successfully
-    // returned.
-    aStream->SetLogicalStreamStartTime(aStream->GetStream()->GetCurrentTime());
-
-    CSFLogInfo(logTag, "Returning success for OnAddStream()");
-    // We are running on main thread here so we shouldn't have a race
-    // on this callback
-
-    nsTArray<nsRefPtr<MediaStreamTrack>> tracks;
-    aStream->GetTracks(tracks);
-    for (uint32_t i = 0; i < tracks.Length(); i++) {
-      JSErrorResult rv;
-      mObserver->OnAddTrack(*tracks[i], rv);
-      if (rv.Failed()) {
-        CSFLogError(logTag, ": OnAddTrack(%d) failed! Error: %d", i,
-                    rv.ErrorCode());
-      }
-    }
-    JSErrorResult rv;
-    mObserver->OnAddStream(*aStream, rv);
-    if (rv.Failed()) {
-      CSFLogError(logTag, ": OnAddStream() failed! Error: %d", rv.ErrorCode());
-    }
-  }
-private:
-  nsRefPtr<PeerConnectionObserver> mObserver;
-};
-#endif
-
-void PeerConnectionImpl::OnRemoteStreamAdded(const MediaStreamTable& aStream) {
-  DOMMediaStream* stream = nullptr;
-
-#ifdef KEEP_SIPCC
-  // TODO(ekr@rtfm.com): No idea what to do here. 
-  nsRefPtr<RemoteSourceStreamInfo> mRemoteStreamInfo =
-    media()->GetRemoteStream(aStream.media_stream_id);
-  MOZ_ASSERT(mRemoteStreamInfo);
-
-  if (!mRemoteStreamInfo) {
-    CSFLogError(logTag, "%s: GetRemoteStream returned NULL", __FUNCTION__);
-  } else {
-    stream = mRemoteStreamInfo->GetMediaStream();
-  }
-#endif
-
-  if (!stream) {
-    CSFLogError(logTag, "%s: GetMediaStream returned NULL", __FUNCTION__);
-  } else {
-    nsRefPtr<PeerConnectionObserver> pco =
-      do_QueryObjectReferent(mPCObserver);
-    if (!pco) {
-      return;
-    }
-
-#ifdef KEEP_SIPCC
-#ifdef MOZILLA_INTERNAL_API
-    TracksAvailableCallback* tracksAvailableCallback =
-      new TracksAvailableCallback(mRemoteStreamInfo->mTrackTypeHints, pco);
-
-    stream->OnTracksAvailable(tracksAvailableCallback);
-#else
-    JSErrorResult rv;
-    pco->OnAddStream(stream, rv);
-#endif
-#endif
-  }
 }
 
 NS_IMETHODIMP
@@ -1910,13 +1927,9 @@ PeerConnectionImpl::CloseInt()
   // transitioned to connected. As a bonus, this allows us to detect race
   // conditions where a stats dispatch happens right as the PC closes.
   RecordLongtermICEStatistics();
-#ifdef KEEP_SIPCC
-  if (mInternal->mCall) {
-    CSFLogInfo(logTag, "%s: Closing PeerConnectionImpl %s; "
-               "ending call", __FUNCTION__, mHandle.c_str());
-    mInternal->mCall->endCall();
-    mInternal->mCall = nullptr;
-  }
+  CSFLogInfo(logTag, "%s: Closing PeerConnectionImpl %s; "
+             "ending call", __FUNCTION__, mHandle.c_str());
+  mJsepSession->Close();
 #ifdef MOZILLA_INTERNAL_API
   if (mDataConnection) {
     CSFLogInfo(logTag, "%s: Destroying DataChannelConnection %p for %s",
@@ -1924,7 +1937,6 @@ PeerConnectionImpl::CloseInt()
     mDataConnection->Destroy();
     mDataConnection = nullptr; // it may not go away until the runnables are dead
   }
-#endif
 #endif
   ShutdownMedia();
 
@@ -2352,8 +2364,7 @@ PeerConnectionImpl::IceGatheringStateChange_m(PCImplIceGatheringState aState)
                              rv, static_cast<JSCompartment*>(nullptr)),
                 NS_DISPATCH_NORMAL);
 
-  if (mIceGatheringState == PCImplIceGatheringState::Complete &&
-      mCandidateBuffer.empty()) {
+  if (mIceGatheringState == PCImplIceGatheringState::Complete) {
     SendLocalIceCandidateToContent(0, "", "");
   }
 

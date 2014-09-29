@@ -88,6 +88,7 @@ class JsepSession {
   virtual nsresult AddIceCandidate(const std::string& candidate,
                                    const std::string& mid,
                                    uint16_t level) = 0;
+  virtual nsresult Close() = 0;
 
   // ICE controlling or controlled
   virtual bool ice_controlling() const = 0;
