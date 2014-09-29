@@ -55,6 +55,10 @@ JsepSessionImpl::~JsepSessionImpl() {
     delete *i;
   }
   mNegotiatedTrackPairs.clear();
+
+  for (auto i = mCodecs.begin(); i != mCodecs.end(); ++i) {
+    delete *i;
+  }
 }
 
 void JsepSessionImpl::Init() {
@@ -166,6 +170,10 @@ nsresult JsepSessionImpl::CreateOffer(const JsepOfferOptions& options,
     if (NS_FAILED(rv))
       return rv;
 
+    // Set RTCP-MUX.
+    msection.GetAttributeList().SetAttribute(
+        new SdpFlagAttribute(SdpAttribute::kRtcpMuxAttribute));
+
     AddCodecs(mediatype, &msection);
 
     track->mAssignedMLine = Some(mline_index);
@@ -201,11 +209,11 @@ nsresult JsepSessionImpl::CreateOffer(const JsepOfferOptions& options,
 void JsepSessionImpl::AddCodecs(SdpMediaSection::MediaType mediatype,
                                 SdpMediaSection* msection) {
   for (auto codec = mCodecs.begin(); codec != mCodecs.end(); ++codec) {
-    if (codec->mEnabled && (codec->mType == mediatype)) {
-      msection->AddCodec(codec->mDefaultPt,
-                        codec->mName,
-                        codec->mClock,
-                        codec->mChannels);
+    if ((*codec)->mEnabled && ((*codec)->mType == mediatype)) {
+      msection->AddCodec((*codec)->mDefaultPt,
+                         (*codec)->mName,
+                         (*codec)->mClock,
+                         (*codec)->mChannels);
     }
   }
 }
@@ -214,12 +222,12 @@ JsepCodecDescription* JsepSessionImpl::FindMatchingCodec(
     SdpMediaSection::MediaType mediatype,
     const SdpRtpmapAttributeList::Rtpmap& entry) {
   for (auto codec = mCodecs.begin(); codec != mCodecs.end(); ++codec) {
-    if (codec->mEnabled
-        && (codec->mType == mediatype)
-        && (codec->mName == entry.name)
-        && (codec->mClock == entry.clock)
-        && (codec->mChannels = entry.channels)) {
-      return &*codec;
+    if ((*codec)->mEnabled
+        && ((*codec)->mType == mediatype)
+        && ((*codec)->mName == entry.name)
+        && ((*codec)->mClock == entry.clock)
+        && ((*codec)->mChannels = entry.channels)) {
+      return *codec;
     }
   }
 
@@ -534,18 +542,26 @@ nsresult JsepSessionImpl::HandleNegotiatedSession(const UniquePtr<Sdp>& local,
     if (NS_FAILED(rv))
       return rv;
 
-    MOZ_MTLOG(ML_DEBUG, "Negotiated m= line sending=" << sending
+    MOZ_MTLOG(ML_DEBUG, "Negotiated m= line"
+              << " index=" << i
+              << " type=" << lm.GetMediaType()
+              << " sending=" << sending
               << " receiving=" << receiving);
 
     UniquePtr<JsepTrackPair> jpair = MakeUnique<JsepTrackPair>();
 
+    // TODO(ekr@rtfm.com): Set the bundle level.
+    jpair->mLevel = i;
+
     if (sending) {
-      rv = CreateTrack(rm, lm, &jpair->mSending);
+      rv = CreateTrack(rm, lm, JsepTrack::kJsepTrackSending,
+                       &jpair->mSending);
       if (NS_FAILED(rv))
         return rv;
     }
     if (receiving) {
-      rv = CreateTrack(lm, rm, &jpair->mReceiving);
+      rv = CreateTrack(lm, rm, JsepTrack::kJsepTrackReceiving,
+                       &jpair->mReceiving);
       if (NS_FAILED(rv))
         return rv;
     }
@@ -553,14 +569,30 @@ nsresult JsepSessionImpl::HandleNegotiatedSession(const UniquePtr<Sdp>& local,
     rv = SetupTransport(rm.GetAttributeList(),
                         offer.GetAttributeList(),
                         answer.GetAttributeList(),
+                        is_offerer,
                         transport);
     if (NS_FAILED(rv))
       return rv;
-
     jpair->mRtpTransport = transport;
 
-    // TODO(ekr@rtfm.com): Check for RTCP mux, don't just assume it.
-    jpair->mRtcpTransport = jpair->mRtpTransport;
+    // RTCP MUX or not.
+    if (offer.GetAttributeList().HasAttribute(
+            SdpAttribute::kRtcpMuxAttribute) &&
+        answer.GetAttributeList().HasAttribute(
+            SdpAttribute::kRtcpMuxAttribute)) {
+      jpair->mRtcpTransport = nullptr;  // We agree on mux.
+      MOZ_MTLOG(ML_DEBUG, "RTCP-MUX is on");
+    } else {
+      MOZ_MTLOG(ML_DEBUG, "RTCP-MUX is off");
+      rv = SetupTransport(rm.GetAttributeList(),
+                          offer.GetAttributeList(),
+                          answer.GetAttributeList(),
+                          is_offerer,
+                          transport);
+      if (NS_FAILED(rv))
+        return rv;
+      jpair->mRtcpTransport = transport;
+    }
 
     track_pairs.push_back(jpair.release());
   }
@@ -574,8 +606,10 @@ nsresult JsepSessionImpl::HandleNegotiatedSession(const UniquePtr<Sdp>& local,
 
 nsresult JsepSessionImpl::CreateTrack(const SdpMediaSection& receive,
                                       const SdpMediaSection& send,
+                                      JsepTrack::Direction direction,
                                       UniquePtr<JsepTrack>* trackp) {
   UniquePtr<JsepTrackImpl> track = MakeUnique<JsepTrackImpl>();
+  track->mDirection = direction;
   track->mMediaType = receive.GetMediaType();
   track->mProtocol = receive.GetProtocol();
 
@@ -593,12 +627,9 @@ nsresult JsepSessionImpl::CreateTrack(const SdpMediaSection& receive,
      JsepCodecDescription* codec = FindMatchingCodec(
          receive.GetMediaType(), entry);
      if (codec) {
-       track->mCodecs.push_back(JsepCodecDescription(
-           track->mMediaType,
-           99,
-           codec->mName,
-           codec->mClock,
-           codec->mChannels));
+       JsepCodecDescription* negotiated = codec->clone();
+       negotiated->mDefaultPt = 99;  // TODO(ekr@rtfm.com): Read the PT out of the SDP.
+       track->mCodecs.push_back(negotiated);
      }
   }
 
@@ -632,6 +663,7 @@ nsresult JsepSessionImpl::CreateTransport(const SdpMediaSection& msection,
 nsresult JsepSessionImpl::SetupTransport(const SdpAttributeList& remote,
                                          const SdpAttributeList& offer,
                                          const SdpAttributeList& answer,
+                                         bool is_offerer,
                                          const RefPtr<JsepTransport>&
                                          transport) {
   UniquePtr<JsepIceTransportImpl> ice = MakeUnique<JsepIceTransportImpl>();
@@ -646,6 +678,21 @@ nsresult JsepSessionImpl::SetupTransport(const SdpAttributeList& remote,
 
   UniquePtr<JsepDtlsTransportImpl> dtls = MakeUnique<JsepDtlsTransportImpl>();
   dtls->mFingerprints = remote.GetFingerprint();
+  if (!answer.HasAttribute(mozilla::SdpAttribute::kSetupAttribute)) {
+    dtls->mRole = is_offerer ?
+        JsepDtlsTransport::kJsepDtlsServer :
+        JsepDtlsTransport::kJsepDtlsClient;
+  } else {
+    if (is_offerer) {
+      dtls->mRole = (answer.GetSetup().mRole == SdpSetupAttribute::kActive) ?
+        JsepDtlsTransport::kJsepDtlsServer :
+        JsepDtlsTransport::kJsepDtlsClient;
+    } else {
+      dtls->mRole = (answer.GetSetup().mRole == SdpSetupAttribute::kActive) ?
+        JsepDtlsTransport::kJsepDtlsClient:
+        JsepDtlsTransport::kJsepDtlsServer;
+    }
+  }
 
   transport->mIce = Move(ice);
   transport->mDtls = Move(dtls);
@@ -856,32 +903,29 @@ nsresult JsepSessionImpl::CreateGenericSDP(UniquePtr<Sdp>* sdpp) {
 
 void JsepSessionImpl::SetupDefaultCodecs() {
   // Supported audio codecs.
-  mCodecs.push_back(JsepCodecDescription(
-      SdpMediaSection::kAudio,
+  mCodecs.push_back(new JsepAudioCodecDescription(
       109,
       "opus",
       48000,
-      2
-                      ));
+      2,
+      960,
+      16000));
 
-  mCodecs.push_back(JsepCodecDescription(
-      SdpMediaSection::kAudio,
+  mCodecs.push_back(new JsepAudioCodecDescription(
       9,
       "G722",
       8000,
       0  // This means default 1
                       ));
 
-  mCodecs.push_back(JsepCodecDescription(
-      SdpMediaSection::kAudio,
+  mCodecs.push_back(new JsepAudioCodecDescription(
       0,
       "PCMU",
       8000,
       0  // This means default 1
                       ));
 
-  mCodecs.push_back(JsepCodecDescription(
-      SdpMediaSection::kAudio,
+  mCodecs.push_back(new JsepAudioCodecDescription(
       8,
       "PCMA",
       8000,
@@ -889,12 +933,10 @@ void JsepSessionImpl::SetupDefaultCodecs() {
                       ));
 
   // Supported video codecs.
-  mCodecs.push_back(JsepCodecDescription(
-      SdpMediaSection::kVideo,
+  mCodecs.push_back(new JsepVideoCodecDescription(
       120,
       "VP8",
-      90000,
-      0  // This means default 1
+      90000
                       ));
 }
 
@@ -910,13 +952,19 @@ void JsepSessionImpl::SetState(JsepSignalingState state) {
 nsresult JsepSessionImpl::AddIceCandidate(const std::string& candidate,
                                           const std::string& mid,
                                           uint16_t level) {
-  if (!mCurrentRemoteDescription) {
+  mozilla::Sdp* sdp = 0;
+
+  if (mPendingRemoteDescription) {
+    sdp = mPendingRemoteDescription.get();
+  } else if (mCurrentRemoteDescription) {
+    sdp = mCurrentRemoteDescription.get();
+  } else {
     mLastError = "Cannot add ICE candidate in current state";
     return NS_ERROR_UNEXPECTED;
   }
 
   SdpAttributeList& attr_list =
-    mCurrentRemoteDescription->GetMediaSection(level).GetAttributeList();
+    sdp->GetMediaSection(level).GetAttributeList();
 
   SdpMultiStringAttribute *candidates = nullptr;
   if (!attr_list.HasAttribute(SdpAttribute::kCandidateAttribute)) {
@@ -933,6 +981,12 @@ nsresult JsepSessionImpl::AddIceCandidate(const std::string& candidate,
 
   return NS_OK;
 }
+
+nsresult JsepSessionImpl::Close() {
+  SetState(kJsepStateClosed);
+  return NS_OK;
+}
+
 
 const std::string
 JsepSessionImpl::last_error() const {

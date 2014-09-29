@@ -101,6 +101,8 @@
         './src/common/time_profiling/timecard.c',
         './src/common/time_profiling/timecard.h',
         # PeerConnection
+        './src/peerconnection/MediaPipelineFactory.cpp',
+        './src/peerconnection/MediaPipelineFactory.h',
         './src/peerconnection/MediaStreamList.cpp',
         './src/peerconnection/MediaStreamList.h',
         './src/peerconnection/PeerConnectionCtx.cpp',

@@ -366,8 +366,6 @@ public:
                          NS_ConvertUTF16toUTF8(aMid).get(), aLevel);
   }
 
-  void OnRemoteStreamAdded(const MediaStreamTable& aStream);
-
   NS_IMETHODIMP CloseStreams();
 
   void CloseStreams(ErrorResult &rv)
@@ -689,9 +687,6 @@ private:
   // The SDP we are using.
   std::string mLocalSDP;
   std::string mRemoteSDP;
-
-  // Holding tank for trickle candidates that arrive before setLocal is done.
-  std::vector<std::pair<std::string, uint16_t>> mCandidateBuffer;
 
   // DTLS fingerprint
   std::string mFingerprint;

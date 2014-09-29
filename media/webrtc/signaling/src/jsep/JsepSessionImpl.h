@@ -78,6 +78,7 @@ class JsepSessionImpl : public JsepSession {
   virtual nsresult AddIceCandidate(const std::string& candidate,
                                    const std::string& mid,
                                    uint16_t level) MOZ_OVERRIDE;
+  virtual nsresult Close() MOZ_OVERRIDE;
 
   virtual const std::string last_error() const MOZ_OVERRIDE;
 
@@ -160,6 +161,7 @@ class JsepSessionImpl : public JsepSession {
                                   JsepSdpType type);
   nsresult CreateTrack(const SdpMediaSection& receive,
                        const SdpMediaSection& send,
+                       JsepTrack::Direction,
                        UniquePtr<JsepTrack>* track);
   void ClearNegotiatedPairs() {
     for (auto p = mNegotiatedTrackPairs.begin();
@@ -174,6 +176,7 @@ class JsepSessionImpl : public JsepSession {
   nsresult SetupTransport(const SdpAttributeList& remote,
                           const SdpAttributeList& offer,
                           const SdpAttributeList& answer,
+                          bool is_offerer,
                           const RefPtr<JsepTransport>& transport);
 
 
@@ -193,7 +196,7 @@ class JsepSessionImpl : public JsepSession {
   UniquePtr<Sdp> mCurrentRemoteDescription;
   UniquePtr<Sdp> mPendingLocalDescription;
   UniquePtr<Sdp> mPendingRemoteDescription;
-  std::vector<JsepCodecDescription> mCodecs;
+  std::vector<JsepCodecDescription*> mCodecs;
   std::string mLastError;
   SipccSdpParser mParser;
 };

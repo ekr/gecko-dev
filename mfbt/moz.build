@@ -63,6 +63,7 @@ EXPORTS.mozilla = [
     'TaggedAnonymousMemory.h',
     'TemplateLib.h',
     'ThreadLocal.h',
+    'ThreadLocked.h',
     'ToString.h',
     'TypedEnum.h',
     'TypedEnumBits.h',

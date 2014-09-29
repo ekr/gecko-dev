@@ -23,6 +23,12 @@ class JsepTrack {
  public:
   virtual ~JsepTrack() {}
 
+  enum Direction {
+    kJsepTrackSending,
+    kJsepTrackReceiving
+  };
+
+  virtual Direction direction() const = 0;
   virtual mozilla::SdpMediaSection::MediaType media_type() const = 0;
   virtual mozilla::SdpMediaSection::Protocol protocol() const = 0;
   virtual Maybe<std::string> bandwidth(const std::string& type) const = 0;
@@ -34,6 +40,7 @@ class JsepTrack {
 
 
 struct JsepTrackPair {
+  size_t mLevel;
   UniquePtr<JsepTrack> mSending;
   UniquePtr<JsepTrack> mReceiving;
   RefPtr<JsepTransport> mRtpTransport;

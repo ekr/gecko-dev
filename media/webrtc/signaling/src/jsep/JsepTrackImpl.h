@@ -22,9 +22,14 @@ class JsepTransport;
 
 class JsepTrackImpl : public JsepTrack {
  public:
-  virtual ~JsepTrackImpl() {}
+  virtual ~JsepTrackImpl() {
+    for (auto c = mCodecs.begin(); c != mCodecs.end(); ++c) {
+      delete *c;
+    }
+  }
 
   // Implement JsepTrack.
+  virtual Direction direction() const { return mDirection; }
   virtual mozilla::SdpMediaSection::MediaType media_type() const
       MOZ_OVERRIDE { return mMediaType; }
   virtual mozilla::SdpMediaSection::Protocol protocol() const
@@ -37,7 +42,7 @@ class JsepTrackImpl : public JsepTrack {
     if (index >= mCodecs.size()) {
       return NS_ERROR_INVALID_ARG;
     }
-    *config = &mCodecs[index];
+    *config = mCodecs[index];
     return NS_OK;
   }
 
@@ -46,10 +51,11 @@ class JsepTrackImpl : public JsepTrack {
   // write setters.
   friend class JsepSessionImpl;
 
+  Direction mDirection;
   mozilla::SdpMediaSection::MediaType mMediaType;
   mozilla::SdpMediaSection::Protocol mProtocol;
   Maybe<std::string> mBandwidth;
-  std::vector<JsepCodecDescription> mCodecs;
+  std::vector<JsepCodecDescription*> mCodecs;
 };
 
 

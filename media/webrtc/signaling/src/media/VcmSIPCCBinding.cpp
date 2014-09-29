@@ -1927,7 +1927,7 @@ static int vcmTxCreateAudioConduit(int level,
   }
   CSFLogError(logTag, "Created audio pipeline audio level %d %d",
               attrs->audio_level, attrs->audio_level_id);
-
+  
   conduit = tx_conduit;
   return 0;
 }
