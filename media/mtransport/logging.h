@@ -49,7 +49,16 @@
 // PR_LOGGING is off --> make no-op MTLOG macros
 #define MOZ_MTLOG_MODULE(n)
 #define MOZ_MTLOG(level, b)
-
 #endif // defined(PR_LOGGING)
+
+#define MOZ_MTLOG_ENSURE_SUCCESS(res, msg)                                \
+  do {                                                                    \
+    nsresult __rv = res; /* Don't evaluate |res| more than once */        \
+    if (NS_FAILED(__rv)) {                                                \
+      MOZ_MTLOG(ML_ERROR, __FUNCTION__ << ":" << __LINE__ << ": " << msg); \
+      NS_ENSURE_SUCCESS_BODY(__rv, __rv)                                  \
+      return res;                                                         \
+    }                                                                     \
+  } while(0)
 
 #endif // logging_h__
