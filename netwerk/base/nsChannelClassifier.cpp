@@ -553,6 +553,8 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
               } else {
                 LOG(("nsChannelClassifier[%p]:OnClassifyComplete marking channel %p as sandboxed ",
                      this, mChannel.get()));
+
+                
               }
             } else {
               mChannel->Cancel(aErrorCode);

@@ -4896,6 +4896,7 @@ nsHttpChannel::AsyncOpen(nsIStreamListener *listener, nsISupports *context)
         mUserSetCookieHeader = cookieHeader;
     }
 
+    // TODO(ekr@rtfm.com): Why are cookies set here?
     AddCookiesToRequest();
 
     // notify "http-on-opening-request" observers, but not if this is a redirect

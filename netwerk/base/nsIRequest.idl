@@ -12,7 +12,7 @@ typedef unsigned long nsLoadFlags;
 /**
  * nsIRequest
  */
-[scriptable, uuid(ef6bfbd2-fd46-48d8-96b7-9f8f0fd387fe)]
+[scriptable, uuid(2d6bcd19-ad80-4e27-bf90-8aaa2b29da8c)]
 interface nsIRequest : nsISupports
 {
     /**

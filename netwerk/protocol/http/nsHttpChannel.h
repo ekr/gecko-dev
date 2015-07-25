@@ -123,6 +123,7 @@ public:
     NS_IMETHOD Cancel(nsresult status) override;
     NS_IMETHOD Suspend() override;
     NS_IMETHOD Resume() override;
+
     // nsIChannel
     NS_IMETHOD GetSecurityInfo(nsISupports **aSecurityInfo) override;
     NS_IMETHOD AsyncOpen(nsIStreamListener *listener, nsISupports *aContext) override;
