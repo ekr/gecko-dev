@@ -15,6 +15,8 @@ class nsIHttpChannelInternal;
 class nsChannelClassifier final : public nsIURIClassifierCallback
 {
 public:
+    enum TrackingProtectionMode { Allow, Block, Sandbox };
+
     nsChannelClassifier();
 
     NS_DECL_ISUPPORTS
@@ -23,8 +25,10 @@ public:
     // Calls nsIURIClassifier.Classify with the principal of the given channel,
     // and cancels the channel on a bad verdict.
     void Start(nsIChannel *aChannel);
+
     // Whether or not tracking protection should be enabled on this channel.
-    nsresult ShouldEnableTrackingProtection(nsIChannel *aChannel, bool *result);
+    nsresult ShouldEnableTrackingProtection(nsIChannel *aChannel,
+                                            TrackingProtectionMode *result);
 
 private:
     // True if the channel is on the allow list.

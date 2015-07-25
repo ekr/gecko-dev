@@ -5070,14 +5070,15 @@ nsHttpChannel::BeginConnect()
     if (mLoadFlags & LOAD_CLASSIFY_URI) {
         nsCOMPtr<nsIURIClassifier> classifier = do_GetService(NS_URICLASSIFIERSERVICE_CONTRACTID);
         if (classifier) {
-            bool tpEnabled = false;
-            channelClassifier->ShouldEnableTrackingProtection(this, &tpEnabled);
+            nsChannelClassifier::TrackingProtectionMode tpmode;
+            channelClassifier->ShouldEnableTrackingProtection(this, &tpmode);
+
             // We skip speculative connections by setting mLocalBlocklist only
             // when tracking protection is enabled. Though we could do this for
             // both phishing and malware, it is not necessary for correctness,
             // since no network events will be received while the
             // nsChannelClassifier is in progress. See bug 1122691.
-            if (tpEnabled) {
+            if (tpmode != nsChannelClassifier::Allow) {
                 nsCOMPtr<nsIPrincipal> principal = GetURIPrincipal();
                 nsAutoCString tables;
                 Preferences::GetCString("urlclassifier.trackingTable", &tables);

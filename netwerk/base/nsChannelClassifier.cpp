@@ -57,17 +57,22 @@ nsChannelClassifier::nsChannelClassifier()
 
 nsresult
 nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
-                                                    bool *result)
+                                                    TrackingProtectionMode *result)
 {
     // Should only be called in the parent process.
     MOZ_ASSERT(XRE_IsParentProcess());
 
     NS_ENSURE_ARG(result);
-    *result = false;
 
-    if (!Preferences::GetBool("privacy.trackingprotection.enabled", false) &&
-        (!Preferences::GetBool("privacy.trackingprotection.pbmode.enabled",
-                               false) || !NS_UsePrivateBrowsing(aChannel))) {
+    TrackingProtectionMode mode;
+    if (Preferences::GetBool("privacy.trackingprotection.enabled", false) ||
+        (Preferences::GetBool("privacy.trackingprotection.pbmode.enabled",
+             false) && NS_UsePrivateBrowsing(aChannel))) {
+      mode = Block;
+    } else if (Preferences::GetBool("privacy.adbox.enabled", false)) {
+      mode = Sandbox;
+    } else {
+      *result = Allow;
       return NS_OK;
     }
 
@@ -104,7 +109,7 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
     thirdPartyUtil->IsThirdPartyURI(chanURI, topWinURI, &isThirdPartyWindow);
     thirdPartyUtil->IsThirdPartyChannel(aChannel, nullptr, &isThirdPartyChannel);
     if (!isThirdPartyWindow || !isThirdPartyChannel) {
-        *result = false;
+        *result = Allow;
 #ifdef DEBUG
         nsCString spec;
         chanURI->GetSpec(spec);
@@ -153,15 +158,15 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
 #ifdef DEBUG
     if (permissions == nsIPermissionManager::ALLOW_ACTION) {
         LOG(("nsChannelClassifier[%p]: Allowlisting channel[%p] for %s", this,
-             aChannel, escaped.get()));
+<             aChannel, escaped.get()));
     }
 #endif
 
     if (permissions == nsIPermissionManager::ALLOW_ACTION) {
       mIsAllowListed = true;
-      *result = false;
+      *result = Allow;
     } else {
-      *result = true;
+      *result = mode;
     }
 
     // In Private Browsing Mode we also check against an in-memory list.
@@ -186,7 +191,7 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
     // Tracking protection will be enabled so return without updating
     // the security state. If any channels are subsequently cancelled
     // (page elements blocked) the state will be then updated.
-    if (*result) {
+    if (mode != Allow) {
 #ifdef DEBUG
       nsCString topspec;
       nsCString spec;
@@ -336,8 +341,8 @@ nsChannelClassifier::StartInternal()
     NS_ENSURE_SUCCESS(rv, rv);
 
     bool expectCallback;
-    bool trackingProtectionEnabled = false;
-    (void)ShouldEnableTrackingProtection(mChannel, &trackingProtectionEnabled);
+    TrackingProtectionMode tpmode;
+    (void)ShouldEnableTrackingProtection(mChannel, &tpmode);
 
 #ifdef DEBUG
     {
@@ -351,7 +356,7 @@ nsChannelClassifier::StartInternal()
            "[this=%p]", principalSpec.get(), uriSpec.get(), this));
     }
 #endif
-    rv = uriClassifier->Classify(principal, trackingProtectionEnabled, this,
+    rv = uriClassifier->Classify(principal, tpmode != Allow, this,
                                  &expectCallback);
     if (NS_FAILED(rv)) {
         return rv;
