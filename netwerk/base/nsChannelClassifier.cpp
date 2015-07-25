@@ -553,8 +553,9 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
               } else {
                 LOG(("nsChannelClassifier[%p]:OnClassifyComplete marking channel %p as sandboxed ",
                      this, mChannel.get()));
-
-                
+                nsLoadFlags flags;
+                mChannel->GetLoadFlags(&flags);
+                mChannel->SetLoadFlags(flags | nsIRequest::LOAD_ANONYMOUS);
               }
             } else {
               mChannel->Cancel(aErrorCode);

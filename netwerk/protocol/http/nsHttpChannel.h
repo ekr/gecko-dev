@@ -142,6 +142,7 @@ public:
 
     NS_IMETHOD SetNotificationCallbacks(nsIInterfaceRequestor *aCallbacks) override;
     NS_IMETHOD SetLoadGroup(nsILoadGroup *aLoadGroup) override;
+
     // nsITimedChannel
     NS_IMETHOD GetDomainLookupStart(mozilla::TimeStamp *aDomainLookupStart) override;
     NS_IMETHOD GetDomainLookupEnd(mozilla::TimeStamp *aDomainLookupEnd) override;

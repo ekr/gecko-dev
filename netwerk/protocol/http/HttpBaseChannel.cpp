@@ -259,6 +259,15 @@ HttpBaseChannel::GetLoadFlags(nsLoadFlags *aLoadFlags)
 NS_IMETHODIMP
 HttpBaseChannel::SetLoadFlags(nsLoadFlags aLoadFlags)
 {
+  // Special case: detect switch to LOAD_ANONYMOUS and clean up.
+  if ((aLoadFlags & LOAD_ANONYMOUS) && !(mLoadFlags & LOAD_ANONYMOUS)) {
+    // TODO(ekr@rtfm.com): Do an audit of all the headers.
+    mRequestHead.ClearHeader(nsHttp::Cookie);
+    mRequestHead.ClearHeader(nsHttp::Authorization);
+    mRequestHead.ClearHeader(nsHttp::Proxy_Authorization);
+    mRequestHead.ClearHeader(nsHttp::Referer);
+  }
+
   mLoadFlags = aLoadFlags;
   return NS_OK;
 }
