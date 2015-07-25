@@ -137,16 +137,20 @@ function doUpdate(update) {
       // Set up the cookies we need
       testOnWindow(setupPage, false, function(aWindow) {
           aWindow.close();
-          
+
           // Normal mode, with the pref (trackers should be loaded)
           testOnWindow(contentPage, false, function(aWindow) {
               checkLoads(aWindow, false);
               aWindow.close();
-              SimpleTest.finish();
-        });
+
+              SpecialPowers.setBoolPref("privacy.adbox.enabled", true);
+              testOnWindow(contentPage, false, function(aWindow) {
+                  checkLoads(aWindow, false);
+                  SimpleTest.finish();
+                });
+            });
       });
-    }
-  }
+  }};
 
   dbService.beginUpdate(listener, "test-track-simple", "");
   dbService.beginStream("", "");
