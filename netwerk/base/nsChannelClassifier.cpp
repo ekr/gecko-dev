@@ -528,6 +528,7 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
         MarkEntryClassified(aErrorCode);
 
         if (NS_FAILED(aErrorCode)) {
+
 #ifdef DEBUG
             nsCOMPtr<nsIURI> uri;
             mChannel->GetURI(getter_AddRefs(uri));
@@ -539,6 +540,7 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
 #endif
 
             if (aErrorCode == NS_ERROR_TRACKING_URI) {
+              LOG(("nsChannelClassifier[%p]:OnClassifyComplete tracking domain", this));
               TrackingProtectionMode tpmode;
               (void)ShouldEnableTrackingProtection(mChannel, &tpmode);
 
@@ -549,7 +551,7 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
                 SetBlockedTrackingContent(mChannel);
                 mChannel->Cancel(aErrorCode);
               } else {
-                LOG(("nsChannelClassifier[%p]: marking channel %p as sandboxed ",
+                LOG(("nsChannelClassifier[%p]:OnClassifyComplete marking channel %p as sandboxed ",
                      this, mChannel.get()));
               }
             } else {

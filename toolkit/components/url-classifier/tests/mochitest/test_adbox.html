@@ -108,7 +108,7 @@ function doUpdate(update) {
 
               SpecialPowers.setBoolPref("privacy.adbox.enabled", true);
               testOnWindow(contentPage, false, function(aWindow) {
-                  checkLoads(aWindow, false);
+                  checkLoads(aWindow, true);
                   SimpleTest.finish();
                 });
             });
