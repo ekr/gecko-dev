@@ -538,14 +538,23 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
                  spec.get(), aErrorCode));
 #endif
 
-            // Channel will be cancelled (page element blocked) due to tracking.
-            // Do update the security state of the document and fire a security
-            // change event.
             if (aErrorCode == NS_ERROR_TRACKING_URI) {
-              SetBlockedTrackingContent(mChannel);
-            }
+              TrackingProtectionMode tpmode;
+              (void)ShouldEnableTrackingProtection(mChannel, &tpmode);
 
-            mChannel->Cancel(aErrorCode);
+              if (tpmode != Sandbox) {
+                // Channel will be cancelled (page element blocked) due to tracking.
+                // Do update the security state of the document and fire a security
+                // change event.
+                SetBlockedTrackingContent(mChannel);
+                mChannel->Cancel(aErrorCode);
+              } else {
+                LOG(("nsChannelClassifier[%p]: marking channel %p as sandboxed ",
+                     this, mChannel.get()));
+              }
+            } else {
+              mChannel->Cancel(aErrorCode);
+            }
         }
         LOG(("nsChannelClassifier[%p]: resuming channel %p from "
              "OnClassifyComplete", this, mChannel.get()));
