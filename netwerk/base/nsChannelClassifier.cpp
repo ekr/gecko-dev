@@ -120,6 +120,9 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
         return NS_OK;
     }
 
+    bool isThirdPartyFramed;
+    thirdPartyUtil->IsThirdPartyToDirectParent(aChannel, &isThirdPartyFramed);
+
     nsCOMPtr<nsIIOService> ios = do_GetService(NS_IOSERVICE_CONTRACTID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
 
