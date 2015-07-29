@@ -120,8 +120,6 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
         return NS_OK;
     }
 
-    bool isThirdPartyFramed;
-    thirdPartyUtil->IsThirdPartyToDirectParent(aChannel, &isThirdPartyFramed);
 
     nsCOMPtr<nsIIOService> ios = do_GetService(NS_IOSERVICE_CONTRACTID, &rv);
     NS_ENSURE_SUCCESS(rv, rv);
@@ -556,6 +554,12 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
               } else {
                 LOG(("nsChannelClassifier[%p]:OnClassifyComplete marking channel %p as sandboxed ",
                      this, mChannel.get()));
+                nsILoadInfo* loadInfo;
+                nsresult rv = mChannel->GetLoadInfo(&loadInfo);
+                NS_ENSURE_SUCCESS(rv, rv);
+
+                nsINode* node = loadInfo->LoadingNode();
+
                 nsLoadFlags flags;
                 mChannel->GetLoadFlags(&flags);
                 mChannel->SetLoadFlags(flags | nsIRequest::LOAD_ANONYMOUS);
