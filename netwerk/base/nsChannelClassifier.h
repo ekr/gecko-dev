@@ -45,6 +45,7 @@ private:
     // Start is called. Returns NS_OK if and only if we will get a callback
     // from the classifier service.
     nsresult StartInternal();
+    nsresult RestartChannelInSandbox();
 
 public:
     // If we are blocking tracking content, update the corresponding flag in

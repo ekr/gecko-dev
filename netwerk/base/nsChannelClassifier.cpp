@@ -186,7 +186,7 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
              this, aChannel, escaped.get()));
       }
 
-      *result = !exists;
+      *result = exists ? Allow : mode;
     }
 
     // Tracking protection will be enabled so return without updating
@@ -552,21 +552,41 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
                 SetBlockedTrackingContent(mChannel);
                 mChannel->Cancel(aErrorCode);
               } else {
-                LOG(("nsChannelClassifier[%p]:OnClassifyComplete marking channel %p as sandboxed ",
-                     this, mChannel.get()));
-                nsILoadInfo* loadInfo;
-                nsresult rv = mChannel->GetLoadInfo(&loadInfo);
+                // TODO(ekr@rtfm.com): Handle errors rather than leak.
+                nsLoadFlags loadFlags;
+                nsresult rv = mChannel->GetLoadFlags(&loadFlags);
                 NS_ENSURE_SUCCESS(rv, rv);
+                if (loadFlags & nsIRequest::LOAD_ANONYMOUS) {
+                  LOG(("nsChannelClassifier[%p]:Tracking load already sandboxed for %p ",
+                       this, mChannel.get()));
 
-                nsINode* node = loadInfo->LoadingNode();
+                  mChannel->Resume();
+                  mChannel = nullptr;
+                } else {
+                  LOG(("nsChannelClassifier[%p]:OnClassifyComplete redirecting  %p as sandboxed ",
+                       this, mChannel.get()));
+                  // TODO(ekr@rtfm.com): This isn't the idiom we do elsewhere in this
+                  // code to get docshell.
+                  nsILoadInfo* loadInfo;
+                  rv = mChannel->GetLoadInfo(&loadInfo);
+                  NS_ENSURE_SUCCESS(rv, rv);
 
-                nsLoadFlags flags;
-                mChannel->GetLoadFlags(&flags);
-                mChannel->SetLoadFlags(flags | nsIRequest::LOAD_ANONYMOUS);
+                  nsINode* node = loadInfo->LoadingNode();
+                  nsCOMPtr<nsIDocShell> docShell = node->OwnerDoc()->GetDocShell();
+
+                  nsCOMPtr<nsIDocShellTreeItem> parent;
+                  docShell->GetSameTypeParent(getter_AddRefs(parent));
+
+                  nsCOMPtr<nsIHttpChannelInternal> hchannel = do_QueryInterface(mChannel, &rv);
+                  NS_ENSURE_SUCCESS(rv, rv);
+
+                  rv = hchannel->StartRedirectChannelInSandbox();
+                }
               }
             } else {
               mChannel->Cancel(aErrorCode);
             }
+            return NS_OK;
         }
         LOG(("nsChannelClassifier[%p]: resuming channel %p from "
              "OnClassifyComplete", this, mChannel.get()));
@@ -577,3 +597,5 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
 
     return NS_OK;
 }
+
+

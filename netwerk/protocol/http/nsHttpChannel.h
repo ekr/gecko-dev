@@ -185,6 +185,7 @@ public: /* internal necko use only */
     nsresult ContinueConnect();
 
     nsresult StartRedirectChannelToURI(nsIURI *, uint32_t);
+    NS_IMETHOD StartRedirectChannelInSandbox() override;
 
     // This allows cache entry to be marked as foreign even after channel itself
     // is gone.  Needed for e10s (see HttpChannelParent::RecvDocumentChannelCleanup)
@@ -332,7 +333,7 @@ private:
     nsresult DoAuthRetry(nsAHttpConnection *);
 
     void     HandleAsyncRedirectChannelToHttps();
-    nsresult StartRedirectChannelToHttps();
+    NS_IMETHOD StartRedirectChannelToHttps();
     nsresult ContinueAsyncRedirectChannelToURI(nsresult rv);
     nsresult OpenRedirectChannel(nsresult rv);
 

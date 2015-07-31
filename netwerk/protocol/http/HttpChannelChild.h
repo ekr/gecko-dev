@@ -87,6 +87,8 @@ public:
   NS_IMETHOD GetLocalPort(int32_t* port) override;
   NS_IMETHOD GetRemoteAddress(nsACString& addr) override;
   NS_IMETHOD GetRemotePort(int32_t* port) override;
+  NS_IMETHOD StartRedirectChannelInSandbox() override { MOZ_CRASH(); return NS_OK; }
+
   // nsISupportsPriority
   NS_IMETHOD SetPriority(int32_t value) override;
   // nsIClassOfService

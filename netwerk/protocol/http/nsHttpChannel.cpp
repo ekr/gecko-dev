@@ -6850,5 +6850,52 @@ nsHttpChannel::OnPush(const nsACString &url, Http2PushedStream *pushedStream)
     return rv;
 }
 
+NS_IMETHODIMP nsHttpChannel::StartRedirectChannelInSandbox()
+{
+    nsresult rv;
+
+    LOG(("nsHttpChannel::%s [this=%p]\n", __FUNCTION__, this));
+
+    nsCOMPtr<nsIIOService> ioService;
+    rv = gHttpHandler->GetIOService(getter_AddRefs(ioService));
+    if (NS_FAILED(rv)) return rv;
+
+    nsCOMPtr<nsIChannel> newChannel;
+    rv = NS_NewChannelInternal(getter_AddRefs(newChannel),
+                               mURI,
+                               mLoadInfo,
+                               nullptr, // aLoadGroup
+                               nullptr, // aCallbacks
+                               nsIRequest::LOAD_NORMAL,
+                               ioService);
+
+    // Inform consumers about this fake redirect
+    mRedirectChannel = newChannel;
+
+    rv = SetupReplacementChannel(mURI, newChannel, true);
+    if (NS_FAILED(rv)) return rv;
+
+    // Add LOAD_ANONYMOUS
+    nsLoadFlags lf;
+    rv = newChannel->GetLoadFlags(&lf);
+    NS_ENSURE_SUCCESS(rv, rv);
+
+    rv = newChannel->SetLoadFlags(lf | nsIRequest::LOAD_ANONYMOUS);
+    NS_ENSURE_SUCCESS(rv, rv);
+    PushRedirectAsyncFunc(&nsHttpChannel::ContinueProcessRedirection);
+    rv = gHttpHandler->AsyncOnChannelRedirect(this, newChannel,
+                                              nsIChannelEventSink::REDIRECT_TEMPORARY);
+
+    if (NS_SUCCEEDED(rv))
+        rv = WaitForRedirectCallback();
+
+    if (NS_FAILED(rv)) {
+        AutoRedirectVetoNotifier notifier(this);
+        PopRedirectAsyncFunc(&nsHttpChannel::ContinueProcessRedirection);
+    }
+
+    return rv;
+}
+
 } // namespace net
 } // namespace mozilla

@@ -252,4 +252,8 @@ interface nsIHttpChannelInternal : nsISupports
      * proxies for this channel.
      */
     readonly attribute nsIURI proxyURI;
+
+    /* Do a redirect to the same URL in a sandbox. Creates a new
+     * channel */
+    void startRedirectChannelInSandbox();
 };
