@@ -921,6 +921,7 @@ int nr_ice_format_candidate_attribute(nr_ice_candidate *cand, char *attr, int ma
     char addr[64];
     int port;
     int len;
+    nr_transport_addr *raddr;
 
     assert(!strcmp(nr_ice_candidate_type_names[HOST], "host"));
     assert(!strcmp(nr_ice_candidate_type_names[RELAYED], "relay"));
@@ -939,23 +940,25 @@ int nr_ice_format_candidate_attribute(nr_ice_candidate *cand, char *attr, int ma
     len=strlen(attr); attr+=len; maxlen-=len;
 
     /* raddr, rport */
+    raddr = (cand->stream->ctx->flags & NR_ICE_CTX_FLAGS_ONLY_DEFAULT_ADDRS) ?
+      &cand->addr : &cand->base;
+
     switch(cand->type){
       case HOST:
         break;
       case SERVER_REFLEXIVE:
       case PEER_REFLEXIVE:
-        if(r=nr_transport_addr_get_addrstring(&cand->base,addr,sizeof(addr)))
+        if(r=nr_transport_addr_get_addrstring(raddr,addr,sizeof(addr)))
           ABORT(r);
-        if(r=nr_transport_addr_get_port(&cand->base,&port))
+        if(r=nr_transport_addr_get_port(raddr,&port))
           ABORT(r);
-
         snprintf(attr,maxlen," raddr %s rport %d",addr,port);
         break;
       case RELAYED:
         // comes from XorMappedAddress via AllocateResponse
-        if(r=nr_transport_addr_get_addrstring(&cand->base,addr,sizeof(addr)))
+        if(r=nr_transport_addr_get_addrstring(raddr,addr,sizeof(addr)))
           ABORT(r);
-        if(r=nr_transport_addr_get_port(&cand->base,&port))
+        if(r=nr_transport_addr_get_port(raddr,&port))
           ABORT(r);
 
         snprintf(attr,maxlen," raddr %s rport %d",addr,port);

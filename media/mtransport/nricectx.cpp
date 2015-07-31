@@ -381,7 +381,8 @@ RefPtr<NrIceCtx> NrIceCtx::Create(const std::string& name,
                                   bool set_interface_priorities,
                                   bool allow_loopback,
                                   bool tcp_enabled,
-                                  bool allow_link_local) {
+                                  bool allow_link_local,
+                                  bool hide_non_default) {
 
   RefPtr<NrIceCtx> ctx = new NrIceCtx(name, offerer);
 
@@ -485,6 +486,9 @@ RefPtr<NrIceCtx> NrIceCtx::Create(const std::string& name,
   UINT4 flags = offerer ? NR_ICE_CTX_FLAGS_OFFERER:
       NR_ICE_CTX_FLAGS_ANSWERER;
   flags |= NR_ICE_CTX_FLAGS_AGGRESSIVE_NOMINATION;
+
+  if (hide_non_default)
+    flags |= NR_ICE_CTX_FLAGS_ONLY_DEFAULT_ADDRS;
 
   r = nr_ice_ctx_create(const_cast<char *>(name.c_str()), flags,
                         &ctx->ctx_);

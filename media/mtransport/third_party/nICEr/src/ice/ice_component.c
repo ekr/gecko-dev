@@ -658,8 +658,9 @@ int nr_ice_component_maybe_prune_candidate(nr_ice_ctx *ctx, nr_ice_component *co
          !nr_transport_addr_cmp(&c1->addr,&c2->addr,NR_TRANSPORT_ADDR_CMP_MODE_ALL)){
 
         if((c1->type == c2->type) ||
-           (c1->type==HOST && c2->type == SERVER_REFLEXIVE) ||
-           (c2->type==HOST && c1->type == SERVER_REFLEXIVE)){
+           (!(ctx->flags & NR_ICE_CTX_FLAGS_ONLY_DEFAULT_ADDRS) &&
+            ((c1->type==HOST && c2->type == SERVER_REFLEXIVE) ||
+             (c2->type==HOST && c1->type == SERVER_REFLEXIVE)))){
 
           /*
              These are redundant. Remove the lower pri one, or if pairing has

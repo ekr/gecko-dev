@@ -1,0 +1,42 @@
+﻿<!DOCTYPE HTML>
+<html>
+<head>
+  <script type="application/javascript" src="pc.js"></script>
+</head>
+<body>
+<pre id="test">
+<script type="application/javascript">
+  createHTML({
+    bug: "796890",
+    title: "Basic audio/video (separate) peer connection"
+  });
+
+function PC_LOCAL_NO_HOST_CANDIDATES(test) {
+  test.pcLocal._pc.addEventListener("icecandidate", function(e) {
+    if (e.candidate) {
+      is(-1, candidate.indexOf("host"),
+       "No host candidates: " + JSON.stringify(can));
+    }
+  });
+}
+
+
+  runNetworkTest(function (options) {
+     SpecialPowers.pushPrefEnv({
+    'set': [
+      ['media.peerconnection.ice.default_address_only', true]
+    ]
+  }, function() {
+    var test = new PeerConnectionTest(options);
+    test.setMediaConstraints([{audio: true}, {video: true}],
+      [{audio: true}, {video: true}]);
+    test.chain.insertAfter("PC_LOCAL_SETUP_ICE_HANDLER", PC_LOCAL_NO_HOST_CANDIDATES);
+    test.run();
+   }
+       );
+});
+
+</script>
+</pre>
+</body>
+</html>

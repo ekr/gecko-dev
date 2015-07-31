@@ -252,10 +252,11 @@ class IceTestPeer : public sigslot::has_slots<> {
  public:
 
   IceTestPeer(const std::string& name, bool offerer, bool set_priorities,
-              bool allow_loopback = false, bool enable_tcp = true) :
+              bool allow_loopback = false, bool enable_tcp = true,
+              bool allow_link_local = false, bool hide_non_default = false) :
       name_(name),
       ice_ctx_(NrIceCtx::Create(name, offerer, set_priorities, allow_loopback,
-                                enable_tcp)),
+                                enable_tcp, allow_link_local, hide_non_default)),
       streams_(),
       candidates_(),
       gathering_complete_(false),
@@ -1245,6 +1246,17 @@ class IceGatherTest : public ::testing::Test {
     return false;
   }
 
+  void DumpCandidates(unsigned int stream) {
+    std::vector<std::string> candidates = peer_->GetCandidates(stream);
+
+    std::cerr << "Candidates for stream " << stream << "->"
+              << candidates.size() << std::endl;
+
+    for (auto c : candidates) {
+      std::cerr << "Candidate: " << c << std::endl;
+    }
+  }
+
  protected:
   mozilla::ScopedDeletePtr<IceTestPeer> peer_;
 };
@@ -1288,24 +1300,28 @@ class IceConnectTest : public ::testing::Test {
     p2_->RemoveStream(index);
   }
 
-  void Init(bool set_priorities, bool allow_loopback, bool enable_tcp) {
+  void Init(bool set_priorities, bool allow_loopback, bool enable_tcp,
+            bool default_only = false) {
     if (!initted_) {
       p1_ = new IceTestPeer("P1", true, set_priorities, allow_loopback,
-                            enable_tcp);
+                            enable_tcp, false, default_only);
       p2_ = new IceTestPeer("P2", false, set_priorities, allow_loopback,
-                            enable_tcp);
+                            enable_tcp, false, default_only);
     }
     initted_ = true;
   }
 
-  bool Gather(unsigned int waitTime = kDefaultTimeout) {
+  bool Gather(unsigned int waitTime = kDefaultTimeout,
+              bool setupStunServers = true) {
     Init(false, false, false);
     if (use_nat_) {
       // If we enable nat simulation, but still use a real STUN server somewhere
       // on the internet, we will see failures if there is a real NAT in
       // addition to our simulated one, particularly if it disallows
       // hairpinning.
-      UseTestStunServer();
+      if (setupStunServers) {
+        UseTestStunServer();
+      }
       p1_->UseNat();
       p2_->UseNat();
       p1_->SetFilteringType(filtering_type_);
@@ -1315,15 +1331,17 @@ class IceConnectTest : public ::testing::Test {
       p1_->SetBlockUdp(block_udp_);
       p2_->SetBlockUdp(block_udp_);
     } else {
-      std::vector<NrIceStunServer> stun_servers;
+      if (setupStunServers) {
+        std::vector<NrIceStunServer> stun_servers;
 
-      stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
-        kDefaultStunServerPort, kNrIceTransportUdp));
-      stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
-        kDefaultStunServerPort, kNrIceTransportTcp));
+        stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
+                                                        kDefaultStunServerPort, kNrIceTransportUdp));
+        stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
+                                                        kDefaultStunServerPort, kNrIceTransportTcp));
 
-      p1_->SetStunServers(stun_servers);
-      p2_->SetStunServers(stun_servers);
+        p1_->SetStunServers(stun_servers);
+        p2_->SetStunServers(stun_servers);
+      }
     }
 
     p1_->Gather();
@@ -1645,6 +1663,19 @@ TEST_F(IceGatherTest, TestGatherFakeStunServerIpAddress) {
   Gather();
 }
 
+TEST_F(IceGatherTest, TestGatherStunServerIpAddressDefaultRouteOnly) {
+  if (g_stun_server_address.empty()) {
+    return;
+  }
+
+  peer_ = new IceTestPeer("P1", true, false, false, false, false, true);
+  peer_->AddStream(1);
+  peer_->SetStunServer(g_stun_server_address, kDefaultStunServerPort);
+  peer_->SetFakeResolver();
+  Gather();
+  ASSERT_FALSE(StreamHasMatchingCandidate(0, " host "));
+}
+
 TEST_F(IceGatherTest, TestGatherFakeStunServerHostname) {
   if (g_stun_server_hostname.empty()) {
     return;
@@ -1921,6 +1952,34 @@ TEST_F(IceGatherTest, TestStunServerTrickle) {
   ASSERT_TRUE(StreamHasMatchingCandidate(0, "192.0.2.1"));
 }
 
+// Test default route only with our fake STUN server and
+// apparently non-NATted. Result should be a host candidate
+// and no srflx candidate.
+TEST_F(IceGatherTest, TestFakeStunServerNatedDefaultRouteOnly) {
+  peer_ = new IceTestPeer("P1", true, false, false, false, false, true);
+  peer_->AddStream(1);
+  UseFakeStunUdpServerWithResponse("192.0.2.1", 3333);
+  Gather(0);
+  WaitForGather();
+  DumpCandidates(0);
+  ASSERT_FALSE(StreamHasMatchingCandidate(0, "host"));
+  ASSERT_TRUE(StreamHasMatchingCandidate(0, "srflx"));
+}
+
+// Test default route only with our fake STUN server and
+// apparently NATted. Result should be a srflx candidate
+// and no host candidate.
+TEST_F(IceGatherTest, TestFakeStunServerNoNatDefaultRouteOnly) {
+  peer_ = new IceTestPeer("P1", true, false, false, false, false, true);
+  peer_->AddStream(1);
+  UseTestStunServer();
+  Gather(0);
+  WaitForGather();
+  DumpCandidates(0);
+  ASSERT_FALSE(StreamHasMatchingCandidate(0, "host"));
+  ASSERT_TRUE(StreamHasMatchingCandidate(0, "srflx"));
+}
+
 TEST_F(IceGatherTest, TestStunTcpServerTrickle) {
   UseFakeStunTcpServerWithResponse("192.0.3.1", 3333);
   TestStunTcpServer::GetInstance(AF_INET)->SetActive(false);
@@ -1991,6 +2050,15 @@ TEST_F(IceConnectTest, DISABLED_TestConnectTcpSo) {
   Connect();
 }
 
+TEST_F(IceConnectTest, DISABLED_TestConnectDefaultRouteOnly) {
+  Init(false, false, false, true);
+  AddStream("first", 1);
+  ASSERT_TRUE(Gather());
+  SetExpectedTypes(NrIceCandidate::Type::ICE_SERVER_REFLEXIVE,
+    NrIceCandidate::Type::ICE_SERVER_REFLEXIVE, kNrIceTransportTcp);
+  Connect();
+}
+
 TEST_F(IceConnectTest, TestLoopbackOnlySortOf) {
   Init(false, true, false);
   AddStream("first", 1);
@@ -1999,7 +2067,6 @@ TEST_F(IceConnectTest, TestLoopbackOnlySortOf) {
   SetExpectedRemoteCandidateAddr("127.0.0.1");
   Connect();
 }
-
 
 TEST_F(IceConnectTest, TestConnectBothControllingP1Wins) {
   AddStream("first", 1);
@@ -2086,6 +2153,28 @@ TEST_F(IceConnectTest, TestGatherFullConeAutoPrioritize) {
 
 
 TEST_F(IceConnectTest, TestConnectFullCone) {
+  AddStream("first", 1);
+  UseNat();
+  SetFilteringType(TestNat::ENDPOINT_INDEPENDENT);
+  SetMappingType(TestNat::ENDPOINT_INDEPENDENT);
+  SetExpectedTypes(NrIceCandidate::Type::ICE_SERVER_REFLEXIVE,
+                   NrIceCandidate::Type::ICE_SERVER_REFLEXIVE);
+  ASSERT_TRUE(Gather());
+  Connect();
+}
+
+TEST_F(IceConnectTest, TestConnectNoNatRouteOnly) {
+  Init(false, false, false, true);
+  AddStream("first", 1);
+  UseTestStunServer();
+  SetExpectedTypes(NrIceCandidate::Type::ICE_HOST,
+                   NrIceCandidate::Type::ICE_SERVER_REFLEXIVE);
+  ASSERT_TRUE(Gather(kDefaultTimeout, false));
+  Connect();
+}
+
+TEST_F(IceConnectTest, TestConnectFullConeDefaultRouteOnly) {
+  Init(false, false, false, true);
   AddStream("first", 1);
   UseNat();
   SetFilteringType(TestNat::ENDPOINT_INDEPENDENT);
