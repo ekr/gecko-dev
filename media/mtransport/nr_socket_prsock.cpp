@@ -581,7 +581,7 @@ int NrSocket::create(nr_transport_addr *addr) {
       ABORT(R_INTERNAL);
     }
 
-    if((r=nr_praddr_to_transport_addr(&naddr,&my_addr_,my_addr_.protocol,1)))
+    if((r=nr_praddr_to_transport_addr(&naddr,&my_addr_,addr->protocol,1)))
       ABORT(r);
   }
 

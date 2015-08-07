@@ -2050,6 +2050,7 @@ TEST_F(IceConnectTest, DISABLED_TestConnectTcpSo) {
   Connect();
 }
 
+// Disabled because this breaks with hairpinning.
 TEST_F(IceConnectTest, DISABLED_TestConnectDefaultRouteOnly) {
   Init(false, false, false, true);
   AddStream("first", 1);
