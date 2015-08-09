@@ -245,12 +245,10 @@ UDPSocketParent::BindInternal(const nsCString& aHost, const uint16_t& aPort,
 bool
 UDPSocketParent::RecvConnect(const UDPAddressInfo& aAddressInfo) {
   UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, aAddressInfo.addr().get(), aAddressInfo.port()));
-#if 0
-  if (NS_FAILED(ConnectInternal(aAddressInfo.addr(), aAddressInfo.port(), aAddressReuse, aLoopback))) {
+  if (NS_FAILED(ConnectInternal(aAddressInfo.addr(), aAddressInfo.port()))) {
     FireInternalError(__LINE__);
     return true;
   }
-#endif
 
   nsCOMPtr<nsINetAddr> localAddr;
   mSocket->GetLocalAddr(getter_AddRefs(localAddr));
@@ -271,6 +269,30 @@ UDPSocketParent::RecvConnect(const UDPAddressInfo& aAddressInfo) {
   mozilla::unused << SendCallbackConnected(UDPAddressInfo(addr, port));
 
   return true;
+}
+
+nsresult
+UDPSocketParent::ConnectInternal(const nsCString& aHost, const uint16_t& aPort)
+{
+  nsresult rv;
+
+  UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, nsCString(aHost).get(), aPort));
+  PRNetAddr prAddr;
+  PR_InitializeNetAddr(PR_IpAddrAny, aPort, &prAddr);
+  PRStatus status = PR_StringToNetAddr(aHost.BeginReading(), &prAddr);
+  if (status != PR_SUCCESS) {
+    return NS_ERROR_FAILURE;
+  }
+
+  mozilla::net::NetAddr addr;
+  PRNetAddrToNetAddr(&prAddr, &addr);
+
+  rv = mSocket->Connect(&addr);
+  if (NS_WARN_IF(NS_FAILED(rv))) {
+    return rv;
+  }
+
+  return NS_OK;
 }
 
 bool

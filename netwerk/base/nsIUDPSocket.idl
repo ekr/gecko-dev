@@ -103,6 +103,16 @@ interface nsIUDPSocket : nsISupports
     void asyncListen(in nsIUDPSocketListener aListener);
 
     /**
+     * connect
+     *
+     * This method connects the UDP socket to a remote UDP address.
+     *
+     * @param aRemoteAddr
+     *        The remote address to connect to
+     */
+     void connect([const] in NetAddrPtr aAddr);
+
+    /**
      * Returns the local address of this UDP socket
      */
     readonly attribute nsINetAddr localAddr;

@@ -855,6 +855,26 @@ fail:
 }
 
 NS_IMETHODIMP
+nsUDPSocket::Connect(const NetAddr *aAddr)
+{
+  NS_ENSURE_ARG(aAddr);
+
+  PRNetAddr prAddr;
+  NetAddrToPRNetAddr(aAddr, &prAddr);
+
+  bool onSTSThread = false;
+  mSts->IsOnCurrentThread(&onSTSThread);
+  MOZ_ASSERT(onSTSThread);
+
+  int32_t status = PR_Connect(mFD, &prAddr, PR_INTERVAL_NO_WAIT);
+  if (status) {
+    return NS_ERROR_FAILURE;
+  }
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsUDPSocket::Close()
 {
   {

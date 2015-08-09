@@ -57,7 +57,7 @@ private:
   void Send(const InputStreamParams& aStream, const UDPSocketAddr& aAddr);
   nsresult BindInternal(const nsCString& aHost, const uint16_t& aPort,
                         const bool& aAddressReuse, const bool& aLoopback);
-
+  nsresult ConnectInternal(const nsCString& aHost, const uint16_t& aPort);
   void FireInternalError(uint32_t aLineNo);
 
   // One of these will be null and the other non-null.
