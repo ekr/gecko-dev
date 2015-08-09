@@ -244,7 +244,31 @@ UDPSocketParent::BindInternal(const nsCString& aHost, const uint16_t& aPort,
 
 bool
 UDPSocketParent::RecvConnect(const UDPAddressInfo& aAddressInfo) {
-  UDPSOCKET_LOG(("%s", __FUNCTION__));
+  UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, aAddressInfo.addr().get(), aAddressInfo.port()));
+#if 0
+  if (NS_FAILED(ConnectInternal(aAddressInfo.addr(), aAddressInfo.port(), aAddressReuse, aLoopback))) {
+    FireInternalError(__LINE__);
+    return true;
+  }
+#endif
+
+  nsCOMPtr<nsINetAddr> localAddr;
+  mSocket->GetLocalAddr(getter_AddRefs(localAddr));
+
+  nsCString addr;
+  if (NS_FAILED(localAddr->GetAddress(addr))) {
+    FireInternalError(__LINE__);
+    return true;
+  }
+
+  uint16_t port;
+  if (NS_FAILED(localAddr->GetPort(&port))) {
+    FireInternalError(__LINE__);
+    return true;
+  }
+
+  UDPSOCKET_LOG(("%s: SendCallbackConnected: %s:%u", __FUNCTION__, addr.get(), port));
+  mozilla::unused << SendCallbackConnected(UDPAddressInfo(addr, port));
 
   return true;
 }

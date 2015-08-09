@@ -971,8 +971,7 @@ NS_IMETHODIMP NrSocketIpcProxy::CallListenerOpened() {
 
 // callback while UDP socket is connected
 NS_IMETHODIMP NrSocketIpcProxy::CallListenerConnected() {
-  //return socket_->CallListenerOpened();
-  MOZ_CRASH();
+  return socket_->CallListenerConnected();
   return NS_OK;
 }
 
@@ -991,6 +990,8 @@ NrSocketIpc::NrSocketIpc()
 
 NrSocketIpc::~NrSocketIpc()
 {
+  r_log(LOG_GENERIC, LOG_DEBUG,"NrSocketIpc:~NrSocketIpc()");
+
   // also guarantees socket_child_ is released from the io_thread, and
   // tells the SingletonThreadHolder we're done with it
 
@@ -1081,18 +1082,20 @@ NS_IMETHODIMP NrSocketIpc::CallListenerReceivedData(const nsACString &host,
   return NS_OK;
 }
 
-// callback while UDP socket is opened
-NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
-  ASSERT_ON_THREAD(io_thread_);
-  ReentrantMonitorAutoEnter mon(monitor_);
-
+nsresult NrSocketIpc::SetAddress() {
+  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
+  if (!socket_child_) {
+    r_log(LOG_GENERIC, LOG_NOTICE, "EKR: socket_child_ is null");
+  }
   uint16_t port;
   if (NS_FAILED(socket_child_->GetLocalPort(&port))) {
+    r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
     err_ = true;
     MOZ_ASSERT(false, "Failed to get local port");
     return NS_OK;
   }
 
+  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
   nsAutoCString address;
   if(NS_FAILED(socket_child_->GetLocalAddress(address))) {
     err_ = true;
@@ -1106,6 +1109,7 @@ NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
     MOZ_ASSERT(false, "Failed to set port in PRNetAddr");
     return NS_OK;
   }
+  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
 
   if (PR_SUCCESS != PR_StringToNetAddr(address.BeginReading(), &praddr)) {
     err_ = true;
@@ -1113,6 +1117,7 @@ NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
     return NS_OK;
   }
 
+  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
   nr_transport_addr expected_addr;
   if(nr_transport_addr_copy(&expected_addr, &my_addr_)) {
     err_ = true;
@@ -1124,12 +1129,46 @@ NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
     MOZ_ASSERT(false, "Failed to copy local host to my_addr_");
   }
 
+  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
   if (nr_transport_addr_cmp(&expected_addr, &my_addr_,
                             NR_TRANSPORT_ADDR_CMP_MODE_ADDR)) {
+    r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
     err_ = true;
     MOZ_ASSERT(false, "Address of opened socket is not expected");
   }
 
+  return NS_OK;
+}
+
+// callback while UDP socket is opened
+NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
+  r_log(LOG_GENERIC, LOG_INFO, "%s %p", __FUNCTION__, this);
+  ASSERT_ON_THREAD(io_thread_);
+  ReentrantMonitorAutoEnter mon(monitor_);
+
+  nsresult rv = SetAddress();
+  if (NS_FAILED(rv))
+    return rv;
+
+  mon.NotifyAll();
+
+  return NS_OK;
+}
+
+// callback while UDP socket is connected
+NS_IMETHODIMP NrSocketIpc::CallListenerConnected() {
+  ASSERT_ON_THREAD(io_thread_);
+  r_log(LOG_GENERIC, LOG_INFO, "%s", __FUNCTION__);
+
+  ReentrantMonitorAutoEnter mon(monitor_);
+
+  MOZ_ASSERT(state_ == NR_CONNECTED);
+
+  nsresult rv = SetAddress();
+  if (NS_FAILED(rv))
+    return rv;
+
+  r_log(LOG_GENERIC, LOG_INFO, "Exit UDP socket connected");
   mon.NotifyAll();
 
   return NS_OK;
@@ -1237,6 +1276,8 @@ int NrSocketIpc::sendto(const void *msg, size_t len, int flags,
 }
 
 void NrSocketIpc::close() {
+  r_log(LOG_GENERIC,LOG_DEBUG,"NrSocketIpc::close()");
+
   ASSERT_ON_THREAD(sts_thread_);
 
   ReentrantMonitorAutoEnter mon(monitor_);
@@ -1309,10 +1350,12 @@ int NrSocketIpc::getaddr(nr_transport_addr *addrp) {
 }
 
 int NrSocketIpc::connect(nr_transport_addr *addr) {
-  PRNetAddr naddr;
   int r,_status;
   int32_t port;
   nsCString host;
+
+  ReentrantMonitorAutoEnter mon(monitor_);
+  r_log(LOG_GENERIC, LOG_DEBUG, "NrSocketIpc::connect(%s)", addr->as_string);
 
   if ((r=nr_transport_addr_get_addrstring_and_port(addr, &host, &port))) {
     ABORT(r);
@@ -1323,6 +1366,11 @@ int NrSocketIpc::connect(nr_transport_addr *addr) {
                                       &NrSocketIpc::connect_i,
                                       host, static_cast<uint16_t>(port)),
                 NS_DISPATCH_NORMAL);
+
+  // Wait until connect() completes.
+  mon.Wait();
+
+  r_log(LOG_GENERIC, LOG_DEBUG, "NrSocketIpc::connect completed");
 
   if (err_) {
     ABORT(R_INTERNAL);
@@ -1396,6 +1444,7 @@ void NrSocketIpc::create_i(const nsACString &host, const uint16_t port) {
 }
 
 void NrSocketIpc::connect_i(const nsACString &host, const uint16_t port) {
+  r_log(LOG_GENERIC, LOG_INFO, "%s %p", __FUNCTION__, this);
   ASSERT_ON_THREAD(io_thread_);
   nsresult rv;
   ReentrantMonitorAutoEnter mon(monitor_);
@@ -1436,6 +1485,7 @@ void NrSocketIpc::sendto_i(const net::NetAddr &addr, nsAutoPtr<DataBuffer> buf) 
 }
 
 void NrSocketIpc::close_i() {
+  r_log(LOG_GENERIC, LOG_INFO, "%s %p", __FUNCTION__, this);
   ASSERT_ON_THREAD(io_thread_);
 
   if (socket_child_) {

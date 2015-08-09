@@ -246,6 +246,8 @@ private:
 
   static nsIThread* GetIOThreadAndAddUse_s();
 
+  nsresult SetAddress();  // Set the local address from parent info.
+
   // Main or private thread executors of the NrSocketBase APIs
   void create_i(const nsACString &host, const uint16_t port);
   void connect_i(const nsACString &host, const uint16_t port);

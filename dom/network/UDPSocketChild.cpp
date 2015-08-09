@@ -198,10 +198,12 @@ NS_IMETHODIMP
 UDPSocketChild::Connect(nsIUDPSocketInternal* aSocket, const nsACString & aHost, uint16_t aPort)
 {
   UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, PromiseFlatCString(aHost).get(), aPort));
-  /*
+
   mSocket = aSocket;
   AddIPDLReference();
-  */
+
+  SendConnect(UDPAddressInfo(nsCString(aHost), aPort));
+
   return NS_OK;
 }
 
@@ -363,7 +365,7 @@ UDPSocketChild::RecvCallbackConnected(const UDPAddressInfo& aAddressInfo)
   mLocalPort = aAddressInfo.port();
 
   UDPSOCKET_LOG(("%s: %s:%u", __FUNCTION__, mLocalAddress.get(), mLocalPort));
-  nsresult rv = mSocket->CallListenerOpened();
+  nsresult rv = mSocket->CallListenerConnected();
   mozilla::unused << NS_WARN_IF(NS_FAILED(rv));
 
   return true;
