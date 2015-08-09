@@ -990,8 +990,6 @@ NrSocketIpc::NrSocketIpc()
 
 NrSocketIpc::~NrSocketIpc()
 {
-  r_log(LOG_GENERIC, LOG_DEBUG,"NrSocketIpc:~NrSocketIpc()");
-
   // also guarantees socket_child_ is released from the io_thread, and
   // tells the SingletonThreadHolder we're done with it
 
@@ -1083,19 +1081,13 @@ NS_IMETHODIMP NrSocketIpc::CallListenerReceivedData(const nsACString &host,
 }
 
 nsresult NrSocketIpc::SetAddress() {
-  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
-  if (!socket_child_) {
-    r_log(LOG_GENERIC, LOG_NOTICE, "EKR: socket_child_ is null");
-  }
   uint16_t port;
   if (NS_FAILED(socket_child_->GetLocalPort(&port))) {
-    r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
     err_ = true;
     MOZ_ASSERT(false, "Failed to get local port");
     return NS_OK;
   }
 
-  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
   nsAutoCString address;
   if(NS_FAILED(socket_child_->GetLocalAddress(address))) {
     err_ = true;
@@ -1109,7 +1101,6 @@ nsresult NrSocketIpc::SetAddress() {
     MOZ_ASSERT(false, "Failed to set port in PRNetAddr");
     return NS_OK;
   }
-  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
 
   if (PR_SUCCESS != PR_StringToNetAddr(address.BeginReading(), &praddr)) {
     err_ = true;
@@ -1117,7 +1108,6 @@ nsresult NrSocketIpc::SetAddress() {
     return NS_OK;
   }
 
-  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
   nr_transport_addr expected_addr;
   if(nr_transport_addr_copy(&expected_addr, &my_addr_)) {
     err_ = true;
@@ -1129,10 +1119,8 @@ nsresult NrSocketIpc::SetAddress() {
     MOZ_ASSERT(false, "Failed to copy local host to my_addr_");
   }
 
-  r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
   if (nr_transport_addr_cmp(&expected_addr, &my_addr_,
                             NR_TRANSPORT_ADDR_CMP_MODE_ADDR)) {
-    r_log(LOG_GENERIC, LOG_NOTICE, "EKR: LINE %d", __LINE__);
     err_ = true;
     MOZ_ASSERT(false, "Address of opened socket is not expected");
   }
@@ -1142,7 +1130,6 @@ nsresult NrSocketIpc::SetAddress() {
 
 // callback while UDP socket is opened
 NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
-  r_log(LOG_GENERIC, LOG_INFO, "%s %p", __FUNCTION__, this);
   ASSERT_ON_THREAD(io_thread_);
   ReentrantMonitorAutoEnter mon(monitor_);
 
@@ -1158,7 +1145,6 @@ NS_IMETHODIMP NrSocketIpc::CallListenerOpened() {
 // callback while UDP socket is connected
 NS_IMETHODIMP NrSocketIpc::CallListenerConnected() {
   ASSERT_ON_THREAD(io_thread_);
-  r_log(LOG_GENERIC, LOG_INFO, "%s", __FUNCTION__);
 
   ReentrantMonitorAutoEnter mon(monitor_);
 
@@ -1444,7 +1430,6 @@ void NrSocketIpc::create_i(const nsACString &host, const uint16_t port) {
 }
 
 void NrSocketIpc::connect_i(const nsACString &host, const uint16_t port) {
-  r_log(LOG_GENERIC, LOG_INFO, "%s %p", __FUNCTION__, this);
   ASSERT_ON_THREAD(io_thread_);
   nsresult rv;
   ReentrantMonitorAutoEnter mon(monitor_);
@@ -1485,7 +1470,6 @@ void NrSocketIpc::sendto_i(const net::NetAddr &addr, nsAutoPtr<DataBuffer> buf) 
 }
 
 void NrSocketIpc::close_i() {
-  r_log(LOG_GENERIC, LOG_INFO, "%s %p", __FUNCTION__, this);
   ASSERT_ON_THREAD(io_thread_);
 
   if (socket_child_) {
