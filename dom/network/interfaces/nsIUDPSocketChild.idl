@@ -34,6 +34,9 @@ interface nsIUDPSocketChild : nsISupports
             in AUTF8String host, in unsigned short port,
             in bool addressReuse, in bool loopback);
 
+  // Tell the chrome process to connect the UDP socket to a given remote host and port
+  void connect(in nsIUDPSocketInternal socket, in AUTF8String host, in unsigned short port);
+
   // Tell the chrome process to perform equivalent operations to all following methods
   void send(in AUTF8String host, in unsigned short port,
             [const, array, size_is(byteLength)] in uint8_t bytes,
@@ -61,6 +64,8 @@ interface nsIUDPSocketInternal : nsISupports
 {
   // callback while socket is opened. localPort and localAddress is ready until this time.
   void callListenerOpened();
+  // callback while socket is connected. localPort and localAddress is ready until this time.
+  void callListenerConnected();
   // callback while socket is closed.
   void callListenerClosed();
   // callback while incoming packet is received.

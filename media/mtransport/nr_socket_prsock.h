@@ -219,6 +219,7 @@ public:
                                          const uint8_t *data,
                                          uint32_t data_length);
   NS_IMETHODIMP CallListenerOpened();
+  NS_IMETHODIMP CallListenerConnected();
   NS_IMETHODIMP CallListenerClosed();
 
   NrSocketIpc();
@@ -247,6 +248,7 @@ private:
 
   // Main or private thread executors of the NrSocketBase APIs
   void create_i(const nsACString &host, const uint16_t port);
+  void connect_i(const nsACString &host, const uint16_t port);
   void sendto_i(const net::NetAddr &addr, nsAutoPtr<DataBuffer> buf);
   void close_i();
 #if defined(MOZILLA_INTERNAL_API) && !defined(MOZILLA_XPCOMRT_API)

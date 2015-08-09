@@ -243,6 +243,13 @@ UDPSocketParent::BindInternal(const nsCString& aHost, const uint16_t& aPort,
 }
 
 bool
+UDPSocketParent::RecvConnect(const UDPAddressInfo& aAddressInfo) {
+  UDPSOCKET_LOG(("%s", __FUNCTION__));
+
+  return true;
+}
+
+bool
 UDPSocketParent::RecvOutgoingData(const UDPData& aData,
                                   const UDPSocketAddr& aAddr)
 {

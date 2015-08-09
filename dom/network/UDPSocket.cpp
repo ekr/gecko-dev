@@ -738,6 +738,15 @@ UDPSocket::CallListenerOpened()
 }
 
 NS_IMETHODIMP
+UDPSocket::CallListenerConnected()
+{
+  // This shoudln't be called here.
+  MOZ_CRASH();
+
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 UDPSocket::CallListenerClosed()
 {
   CloseWithReason(NS_OK);

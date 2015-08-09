@@ -36,6 +36,7 @@ public:
 
   virtual bool RecvBind(const UDPAddressInfo& aAddressInfo,
                         const bool& aAddressReuse, const bool& aLoopback) override;
+  virtual bool RecvConnect(const UDPAddressInfo& aAddressInfo) override;
 
   virtual bool RecvOutgoingData(const UDPData& aData, const UDPSocketAddr& aAddr) override;
 

@@ -969,6 +969,13 @@ NS_IMETHODIMP NrSocketIpcProxy::CallListenerOpened() {
   return socket_->CallListenerOpened();
 }
 
+// callback while UDP socket is connected
+NS_IMETHODIMP NrSocketIpcProxy::CallListenerConnected() {
+  //return socket_->CallListenerOpened();
+  MOZ_CRASH();
+  return NS_OK;
+}
+
 // callback while UDP socket is closed
 NS_IMETHODIMP NrSocketIpcProxy::CallListenerClosed() {
   return socket_->CallListenerClosed();
@@ -1302,8 +1309,28 @@ int NrSocketIpc::getaddr(nr_transport_addr *addrp) {
 }
 
 int NrSocketIpc::connect(nr_transport_addr *addr) {
-  MOZ_ASSERT(false);
-  return R_INTERNAL;
+  PRNetAddr naddr;
+  int r,_status;
+  int32_t port;
+  nsCString host;
+
+  if ((r=nr_transport_addr_get_addrstring_and_port(addr, &host, &port))) {
+    ABORT(r);
+  }
+
+  RUN_ON_THREAD(io_thread_,
+                mozilla::WrapRunnable(nsRefPtr<NrSocketIpc>(this),
+                                      &NrSocketIpc::connect_i,
+                                      host, static_cast<uint16_t>(port)),
+                NS_DISPATCH_NORMAL);
+
+  if (err_) {
+    ABORT(R_INTERNAL);
+  }
+
+  _status=0;
+abort:
+  return _status;
 }
 
 int NrSocketIpc::write(const void *msg, size_t len, size_t *written) {
@@ -1367,6 +1394,28 @@ void NrSocketIpc::create_i(const nsACString &host, const uint16_t port) {
     return;
   }
 }
+
+void NrSocketIpc::connect_i(const nsACString &host, const uint16_t port) {
+  ASSERT_ON_THREAD(io_thread_);
+  nsresult rv;
+  ReentrantMonitorAutoEnter mon(monitor_);
+
+  nsRefPtr<NrSocketIpcProxy> proxy(new NrSocketIpcProxy);
+  rv = proxy->Init(this);
+  if (NS_FAILED(rv)) {
+    err_ = true;
+    mon.NotifyAll();
+    return;
+  }
+
+  if (NS_FAILED(socket_child_->Connect(proxy, host, port))) {
+    err_ = true;
+    MOZ_ASSERT(false, "Failed to connect UDP socket");
+    mon.NotifyAll();
+    return;
+  }
+}
+
 
 void NrSocketIpc::sendto_i(const net::NetAddr &addr, nsAutoPtr<DataBuffer> buf) {
   ASSERT_ON_THREAD(io_thread_);
