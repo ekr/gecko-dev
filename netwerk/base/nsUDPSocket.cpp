@@ -857,6 +857,8 @@ fail:
 NS_IMETHODIMP
 nsUDPSocket::Connect(const NetAddr *aAddr)
 {
+  UDPSOCKET_LOG(("nsUDPSocket::Connect [this=%p]\n", this));
+
   NS_ENSURE_ARG(aAddr);
 
   PRNetAddr prAddr;
@@ -866,10 +868,21 @@ nsUDPSocket::Connect(const NetAddr *aAddr)
   mSts->IsOnCurrentThread(&onSTSThread);
   MOZ_ASSERT(onSTSThread);
 
-  int32_t status = PR_Connect(mFD, &prAddr, PR_INTERVAL_NO_WAIT);
-  if (status) {
+  if (PR_Connect(mFD, &prAddr, PR_INTERVAL_NO_WAIT) != PR_SUCCESS) {
+    NS_WARNING("Cannot PR_Connect");
     return NS_ERROR_FAILURE;
   }
+
+  // get the resulting socket address, which may have been updated.
+  PRNetAddr addr;
+  if (PR_GetSockName(mFD, &addr) != PR_SUCCESS)
+  {
+    NS_WARNING("cannot get socket name");
+    return NS_ERROR_FAILURE;
+  }
+
+  PRNetAddrToNetAddr(&addr, &mAddr);
+
 
   return NS_OK;
 }

@@ -1107,7 +1107,6 @@ nsresult NrSocketIpc::SetAddress() {
     MOZ_ASSERT(false, "Failed to convert local host to PRNetAddr");
     return NS_OK;
   }
-
   nr_transport_addr expected_addr;
   if(nr_transport_addr_copy(&expected_addr, &my_addr_)) {
     err_ = true;
@@ -1119,7 +1118,8 @@ nsresult NrSocketIpc::SetAddress() {
     MOZ_ASSERT(false, "Failed to copy local host to my_addr_");
   }
 
-  if (nr_transport_addr_cmp(&expected_addr, &my_addr_,
+  if (!nr_transport_addr_is_wildcard(&expected_addr) &&
+      nr_transport_addr_cmp(&expected_addr, &my_addr_,
                             NR_TRANSPORT_ADDR_CMP_MODE_ADDR)) {
     err_ = true;
     MOZ_ASSERT(false, "Address of opened socket is not expected");
@@ -1356,7 +1356,8 @@ int NrSocketIpc::connect(nr_transport_addr *addr) {
   // Wait until connect() completes.
   mon.Wait();
 
-  r_log(LOG_GENERIC, LOG_DEBUG, "NrSocketIpc::connect completed");
+  r_log(LOG_GENERIC, LOG_DEBUG, "NrSocketIpc::connect completed err_ = %s",
+        err_ ? "true" : "false");
 
   if (err_) {
     ABORT(R_INTERNAL);
