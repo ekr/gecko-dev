@@ -581,6 +581,8 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
                   NS_ENSURE_SUCCESS(rv, rv);
 
                   rv = hchannel->StartRedirectChannelInSandbox();
+
+                  mChannel->Resume();
                 }
               }
             } else {
