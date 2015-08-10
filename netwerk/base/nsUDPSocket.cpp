@@ -866,7 +866,9 @@ nsUDPSocket::Connect(const NetAddr *aAddr)
 
   bool onSTSThread = false;
   mSts->IsOnCurrentThread(&onSTSThread);
-  MOZ_ASSERT(onSTSThread);
+  if (!onSTSThread) {
+    UDPSOCKET_LOG(("NOT ON STS THREAD"));
+  }
 
   if (PR_Connect(mFD, &prAddr, PR_INTERVAL_NO_WAIT) != PR_SUCCESS) {
     NS_WARNING("Cannot PR_Connect");
