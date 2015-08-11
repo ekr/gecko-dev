@@ -250,7 +250,8 @@ class SchedulableTrickleCandidate {
 
 class IceTestPeer : public sigslot::has_slots<> {
  public:
-
+  // TODO(ekr@rtfm.com): Convert to flags when NrIceCtx::Create() does.
+  // Bug 1193437.
   IceTestPeer(const std::string& name, bool offerer, bool set_priorities,
               bool allow_loopback = false, bool enable_tcp = true,
               bool allow_link_local = false, bool hide_non_default = false) :
@@ -1330,18 +1331,16 @@ class IceConnectTest : public ::testing::Test {
       p2_->SetMappingType(mapping_type_);
       p1_->SetBlockUdp(block_udp_);
       p2_->SetBlockUdp(block_udp_);
-    } else {
-      if (setupStunServers) {
-        std::vector<NrIceStunServer> stun_servers;
+    } else if (setupStunServers) {
+      std::vector<NrIceStunServer> stun_servers;
 
-        stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
-                                                        kDefaultStunServerPort, kNrIceTransportUdp));
-        stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
-                                                        kDefaultStunServerPort, kNrIceTransportTcp));
+      stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
+                                                      kDefaultStunServerPort, kNrIceTransportUdp));
+      stun_servers.push_back(*NrIceStunServer::Create(g_stun_server_address,
+                                                      kDefaultStunServerPort, kNrIceTransportTcp));
 
-        p1_->SetStunServers(stun_servers);
-        p2_->SetStunServers(stun_servers);
-      }
+      p1_->SetStunServers(stun_servers);
+      p2_->SetStunServers(stun_servers);
     }
 
     p1_->Gather();
@@ -1953,8 +1952,7 @@ TEST_F(IceGatherTest, TestStunServerTrickle) {
 }
 
 // Test default route only with our fake STUN server and
-// apparently non-NATted. Result should be a host candidate
-// and no srflx candidate.
+// apparently NATted.
 TEST_F(IceGatherTest, TestFakeStunServerNatedDefaultRouteOnly) {
   peer_ = new IceTestPeer("P1", true, false, false, false, false, true);
   peer_->AddStream(1);
@@ -1967,8 +1965,7 @@ TEST_F(IceGatherTest, TestFakeStunServerNatedDefaultRouteOnly) {
 }
 
 // Test default route only with our fake STUN server and
-// apparently NATted. Result should be a srflx candidate
-// and no host candidate.
+// apparently non-NATted.
 TEST_F(IceGatherTest, TestFakeStunServerNoNatDefaultRouteOnly) {
   peer_ = new IceTestPeer("P1", true, false, false, false, false, true);
   peer_->AddStream(1);
@@ -2168,6 +2165,9 @@ TEST_F(IceConnectTest, TestConnectNoNatRouteOnly) {
   Init(false, false, false, true);
   AddStream("first", 1);
   UseTestStunServer();
+  // Because we are connecting from our host candidate to the
+  // other side's apparent srflx (which is also their host)
+  // we see a host/srflx pair.
   SetExpectedTypes(NrIceCandidate::Type::ICE_HOST,
                    NrIceCandidate::Type::ICE_SERVER_REFLEXIVE);
   ASSERT_TRUE(Gather(kDefaultTimeout, false));

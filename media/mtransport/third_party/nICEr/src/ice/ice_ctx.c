@@ -1,3 +1,4 @@
+
 /*
 Copyright (c) 2007, Adobe Systems, Incorporated
 All rights reserved.
@@ -580,9 +581,9 @@ static int nr_ice_get_default_address(nr_ice_ctx *ctx, int ip_version, nr_transp
         if ((r=nr_str_port_to_transport_addr("2001:4860:4860::8888", 53, IPPROTO_UDP, &remote_addr)))
           ABORT(r);
         break;
-    default:
-      assert(0);
-      ABORT(R_INTERNAL);
+      default:
+        assert(0);
+        ABORT(R_INTERNAL);
     }
 
     if ((r=nr_socket_factory_create_socket(ctx->socket_factory, &addr, &sock)))

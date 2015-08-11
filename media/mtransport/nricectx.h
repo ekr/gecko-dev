@@ -208,6 +208,8 @@ class NrIceCtx {
                      ICE_CONTROLLED
   };
 
+
+  // TODO(ekr@rtfm.com): Too many bools here. Bug 1193437.
   static RefPtr<NrIceCtx> Create(const std::string& name,
                                  bool offerer,
                                  bool set_interface_priorities = true,

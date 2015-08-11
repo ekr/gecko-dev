@@ -7,8 +7,8 @@
 <pre id="test">
 <script type="application/javascript">
   createHTML({
-    bug: "796890",
-    title: "Basic audio/video (separate) peer connection"
+    bug: "1189041",
+    title: "Only use default routes for ICE"
   });
 
 function PC_LOCAL_NO_HOST_CANDIDATES(test) {
@@ -21,19 +21,18 @@ function PC_LOCAL_NO_HOST_CANDIDATES(test) {
 }
 
 
-  runNetworkTest(function (options) {
-     SpecialPowers.pushPrefEnv({
-    'set': [
-      ['media.peerconnection.ice.default_address_only', true]
-    ]
-  }, function() {
-    var test = new PeerConnectionTest(options);
-    test.setMediaConstraints([{audio: true}, {video: true}],
-      [{audio: true}, {video: true}]);
-    test.chain.insertAfter("PC_LOCAL_SETUP_ICE_HANDLER", PC_LOCAL_NO_HOST_CANDIDATES);
-    test.run();
-   }
-       );
+runNetworkTest(function (options) {
+  SpecialPowers.pushPrefEnv({
+ 'set': [
+   ['media.peerconnection.ice.default_address_only', true]
+ ]
+,function() {
+   var test = new PeerConnectionTest(options);
+   test.setMediaConstraints([{audio: true}, {video: true}],
+     [{audio: true}, {video: true}]);
+   test.chain.insertAfter("PC_LOCAL_SETUP_ICE_HANDLER", PC_LOCAL_NO_HOST_CANDIDATES);
+   test.run();
+  });
 });
 
 </script>

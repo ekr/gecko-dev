@@ -738,7 +738,7 @@ int NrSocket::connect(nr_transport_addr *addr) {
   ASSERT_ON_THREAD(ststhread_);
   int r,_status;
   PRNetAddr naddr;
-  int32_t status, status2;
+  int32_t connect_status, getsockname_status;
 
   if ((r=nr_transport_addr_to_praddr(addr, &naddr)))
     ABORT(r);
@@ -749,8 +749,8 @@ int NrSocket::connect(nr_transport_addr *addr) {
   // Note: this just means we tried to connect, not that we
   // are actually live.
   connect_invoked_ = true;
-  status = PR_Connect(fd_, &naddr, PR_INTERVAL_NO_WAIT);
-  if (status != PR_SUCCESS) {
+  connect_status = PR_Connect(fd_, &naddr, PR_INTERVAL_NO_WAIT);
+  if (connect_status != PR_SUCCESS) {
     if (PR_GetError() != PR_IN_PROGRESS_ERROR)
       ABORT(R_IO_ERROR);
   }
@@ -758,8 +758,8 @@ int NrSocket::connect(nr_transport_addr *addr) {
   // If our local address is wildcard, then fill in the
   // address now.
   if(nr_transport_addr_is_wildcard(&my_addr_)){
-    status2 = PR_GetSockName(fd_, &naddr);
-    if (status2 != PR_SUCCESS){
+    getsockname_status = PR_GetSockName(fd_, &naddr);
+    if (getsockname_status != PR_SUCCESS){
       r_log(LOG_GENERIC, LOG_CRIT, "Couldn't get sock name for socket");
       ABORT(R_INTERNAL);
     }
@@ -769,7 +769,7 @@ int NrSocket::connect(nr_transport_addr *addr) {
   }
 
   // Now return the WOULDBLOCK if needed.
-  if (status != PR_SUCCESS) {
+  if (connect_status != PR_SUCCESS) {
     ABORT(R_WOULDBLOCK);
   }
 
