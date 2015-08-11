@@ -1355,7 +1355,7 @@ int nr_ice_component_get_default_candidate(nr_ice_component *comp, nr_ice_candid
     */
     cand=TAILQ_FIRST(&comp->candidates);
     while(cand){
-      if (cand->state == NR_ICE_CAND_STATE_INITIALIZED &&
+      if (!nr_ice_ctx_hide_candidate(comp->ctx, cand) &&
           cand->addr.ip_version == ip_version) {
         if (!best_cand) {
           best_cand = cand;

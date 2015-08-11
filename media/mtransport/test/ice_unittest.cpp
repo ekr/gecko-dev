@@ -1063,6 +1063,10 @@ class IceTestPeer : public sigslot::has_slots<> {
     SetControlling(NrIceCtx::ICE_CONTROLLED);
   }
 
+  nsresult GetDefaultCandidate(unsigned int stream, NrIceCandidate* cand) {
+    return streams_[stream]->GetDefaultCandidate(1, cand);
+  }
+
  private:
   std::string name_;
   nsRefPtr<NrIceCtx> ice_ctx_;
@@ -1798,6 +1802,14 @@ TEST_F(IceGatherTest, TestGatherDNSStunBogusHostnameTcp) {
   Gather();
 }
 
+TEST_F(IceGatherTest, TestDefaultCandidate) {
+  EnsurePeer();
+  peer_->SetStunServer(g_stun_server_hostname, kDefaultStunServerPort);
+  Gather();
+  NrIceCandidate default_candidate;
+  ASSERT_TRUE(NS_SUCCEEDED(peer_->GetDefaultCandidate(0, &default_candidate)));
+}
+
 TEST_F(IceGatherTest, TestGatherTurn) {
   EnsurePeer();
   if (g_turn_server.empty())
@@ -1962,6 +1974,11 @@ TEST_F(IceGatherTest, TestFakeStunServerNatedDefaultRouteOnly) {
   DumpCandidates(0);
   ASSERT_FALSE(StreamHasMatchingCandidate(0, "host"));
   ASSERT_TRUE(StreamHasMatchingCandidate(0, "srflx"));
+  NrIceCandidate default_candidate;
+  nsresult rv = peer_->GetDefaultCandidate(0, &default_candidate);
+  if (NS_SUCCEEDED(rv)) {
+    ASSERT_NE(NrIceCandidate::ICE_HOST, default_candidate.type);
+  }
 }
 
 // Test default route only with our fake STUN server and
