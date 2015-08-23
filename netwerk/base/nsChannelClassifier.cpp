@@ -159,7 +159,7 @@ nsChannelClassifier::ShouldEnableTrackingProtection(nsIChannel *aChannel,
 #ifdef DEBUG
     if (permissions == nsIPermissionManager::ALLOW_ACTION) {
         LOG(("nsChannelClassifier[%p]: Allowlisting channel[%p] for %s", this,
-<             aChannel, escaped.get()));
+             aChannel, escaped.get()));
     }
 #endif
 
@@ -577,6 +577,11 @@ nsChannelClassifier::OnClassifyComplete(nsresult aErrorCode)
                   nsCOMPtr<nsIDocShellTreeItem> parent;
                   docShell->GetSameTypeParent(getter_AddRefs(parent));
 
+                  if (parent.get()) {
+                    LOG(("EKR: PARENT IS NULL"));
+                  } else {
+                    LOG(("EKR: PARENT IS NON-NULL"));
+                  }
                   nsCOMPtr<nsIHttpChannelInternal> hchannel = do_QueryInterface(mChannel, &rv);
                   NS_ENSURE_SUCCESS(rv, rv);
 

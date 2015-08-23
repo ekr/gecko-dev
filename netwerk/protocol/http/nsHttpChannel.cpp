@@ -5583,6 +5583,7 @@ nsHttpChannel::OnStartRequest(nsIRequest *request, nsISupports *ctxt)
 
     // avoid crashing if mListener happens to be null...
     if (!mListener) {
+        LOG(("EKR : mListener is null this=%p\n", this));
         NS_NOTREACHED("mListener is null");
         return NS_OK;
     }
@@ -6871,6 +6872,9 @@ NS_IMETHODIMP nsHttpChannel::StartRedirectChannelInSandbox()
 
     // Inform consumers about this fake redirect
     mRedirectChannel = newChannel;
+
+    LOG(("nsHttpChannel::%s [this=%p] newChannel = %p\n", __FUNCTION__, this,
+         newChannel.get()));
 
     rv = SetupReplacementChannel(mURI, newChannel, true);
     if (NS_FAILED(rv)) return rv;
