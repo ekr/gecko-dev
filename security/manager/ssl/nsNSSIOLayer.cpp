@@ -7,6 +7,7 @@
 #include "nsNSSIOLayer.h"
 
 #include <algorithm>
+#include <iostream>
 
 #include "NSSCertDBTrustDomain.h"
 #include "NSSErrorsService.h"
@@ -1148,11 +1149,12 @@ retryDueToTLSIntolerance(PRErrorCode err, nsNSSSocketInfo* socketInfo)
 }
 
 // Ensure that we haven't added too many errors to fit.
-PR_STATIC_ASSERT((SSL_ERROR_END_OF_LIST - SSL_ERROR_BASE) <= 256);
-PR_STATIC_ASSERT((PR_MAX_ERROR - PR_NSPR_ERROR_BASE) <= 127);
+static_assert((SSL_ERROR_END_OF_LIST - SSL_ERROR_BASE) <= 256);
+static_assert((SEC_ERROR_END_OF_LIST - SEC_ERROR_BASE) <= 256);
+static_assert((PR_MAX_ERROR - PR_NSPR_ERROR_BASE) <= 127);
 
 static void
-reportError(int32_t bytesTransferred, PRErrorCode err)
+reportResult(int32_t bytesTransferred, PRErrorCode err)
 {
   uint32_t bucket;
 
@@ -1161,10 +1163,15 @@ reportError(int32_t bytesTransferred, PRErrorCode err)
   } else if (IS_SSL_ERROR(err)) {
     bucket = err - SSL_ERROR_BASE;
     MOZ_ASSERT(bucket > 0);   // SSL_ERROR_EXPORT_ONLY_SERVER isn't used.
+  } else if (IS_SEC_ERROR(err)) {
+    bucket = (err - SEC_ERROR_BASE) + 256;
   } else if ((err >= PR_NSPR_ERROR_BASE) && (err < PR_MAX_ERROR)) {
-    bucket = (err - PR_NSPR_ERROR_BASE) + 256;
+    bucket = (err - PR_NSPR_ERROR_BASE) + 512;
   } else {
-    bucket = 383;
+    std::cerr << "EKR: err = " << err << "(" << PR_ErrorToName(err)
+              << ")" << std::endl;
+    MOZ_CRASH();
+    bucket = 639;
   }
 
   Telemetry::Accumulate(Telemetry::SSL_HANDSHAKE_RESULT, bucket);
@@ -1247,8 +1254,8 @@ checkHandshake(int32_t bytesTransfered, bool wasReading,
   // set the HandshakePending attribute to false so that we don't try the logic
   // above again in a subsequent transfer.
   if (handleHandshakeResultNow) {
-    // Report the error once per connection.
-    reportError(bytesTransfered, originalError);
+    // Report the result once for each handshake.
+    reportResult(bytesTransfered, originalError);
     socketInfo->SetHandshakeNotPending();
   }
 
@@ -2183,8 +2190,7 @@ ClientAuthDataRunnable::RunOnTargetThread()
       nsCOMPtr<nsIX509CertDB> certdb = do_GetService(NS_X509CERTDB_CONTRACTID);
       if (certdb) {
         nsCOMPtr<nsIX509Cert> foundCert;
-        rv = certdb->FindCertByDBKey(rememberedDBKey.get(),
-                                     getter_AddRefs(foundCert));
+        rv = certdb->FindCertByDBKey(rememberedDBKey, getter_AddRefs(foundCert));
         if (NS_SUCCEEDED(rv) && foundCert) {
           nsNSSCertificate* objCert =
             BitwiseCast<nsNSSCertificate*, nsIX509Cert*>(foundCert.get());
