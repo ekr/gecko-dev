@@ -373,10 +373,11 @@ nsNSSSocketInfo::DriveHandshake()
     if (errorCode == PR_WOULD_BLOCK_ERROR) {
       return NS_BASE_STREAM_WOULD_BLOCK;
     }
-
+    MOZ_CRASH();
     SetCanceled(errorCode, PlainErrorMessage);
     return GetXPCOMFromNSSError(errorCode);
   }
+  MOZ_CRASH();
   return NS_OK;
 }
 
