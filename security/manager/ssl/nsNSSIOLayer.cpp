@@ -1023,13 +1023,11 @@ nsNSSSocketInfo::SetEsniTxt(const nsACString & aEsniTxt)
     fprintf(stderr,"\n\nTODO - SSL_EnableSNI() [%s] (%d bytes)\n",
             mEsniTxt.get(), mEsniTxt.Length());
 
-#if 0
     if (SECSuccess != SSL_EnableESNI(mFd,
                                      reinterpret_cast<const PRUint8*>(mEsniTxt.get()),
                                      mEsniTxt.Length(), "dummy.invalid")) {
       return NS_ERROR_FAILURE;
     }
-#endif
   }
 
   return NS_OK;

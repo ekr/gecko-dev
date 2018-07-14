@@ -3063,9 +3063,34 @@ nsSocketTransport::OnLookupByTypeComplete(nsICancelable      *request,
     MOZ_ASSERT(mDNSTxtRequest == request);
     mDNSTxtRequest = nullptr;
 
+<<<<<<< HEAD
     if (NS_SUCCEEDED(status)) {
         txtResponse->GetRecordsAsOneString(mDNSRecordTxt);
         mDNSRecordTxt.Trim(" ");
+=======
+    // todo .. why are we canceling the A lookup because the TXT lookup failed?
+    if (NS_FAILED(status) && (status != NS_ERROR_UNKNOWN_HOST) &&
+        mDNSRequest) {
+        mDNSRequest->Cancel(NS_ERROR_ABORT);
+        mDNSRequest = nullptr;
+    } else if (NS_SUCCEEDED(status)) {
+        nsTArray<nsCString> txtRecordSet;
+        txtResponse->GetRecords(txtRecordSet);
+        uint32_t setLen = txtRecordSet.Length();
+
+        if (setLen == 1) {
+            mDNSRecordTxt = TrimWhitespace(txtRecordSet[0]);
+        } else {
+            nsAutoCString longRecord;
+            for (uint32_t i = 0; i < setLen; ++i) {
+                longRecord.Append(TrimWhitespace(txtRecordSet[i]));
+            }
+            if (NS_FAILED(Base64Decode(longRecord, mDNSRecordTxt))) {
+                SOCKET_LOG(("nsSocketTransport ESNI decode failure\n"));
+                mDNSRecordTxt.Truncate(0);
+            }
+        }
+>>>>>>> 0260c28fa89e... Wire up NSS
     }
     Telemetry::Accumulate(Telemetry::ESNI_KEYS_RECORDS_FOUND,
                           NS_SUCCEEDED(status));
