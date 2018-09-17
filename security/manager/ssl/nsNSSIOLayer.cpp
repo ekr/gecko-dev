@@ -1040,12 +1040,12 @@ nsNSSSocketInfo::GetServerRootCertIsBuiltInRoot(bool *aIsBuiltInRoot)
 {
   *aIsBuiltInRoot = false;
 
-  if (!SSLStatus() || !SSLStatus()->HasServerCert()) {
+  if (!HasServerCert()) {
     return NS_ERROR_NOT_AVAILABLE;
   }
 
   nsCOMPtr<nsIX509CertList> certList;
-  nsresult rv = SSLStatus()->GetSucceededCertChain(getter_AddRefs(certList));
+  nsresult rv = GetSucceededCertChain(getter_AddRefs(certList));
   if (NS_SUCCEEDED(rv)) {
     if (!certList) {
       return NS_ERROR_NOT_AVAILABLE;

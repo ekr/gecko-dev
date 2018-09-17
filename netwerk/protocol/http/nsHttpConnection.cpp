@@ -39,7 +39,9 @@
 #include "nsProxyRelease.h"
 #include "nsSocketTransport2.h"
 #include "nsStringStream.h"
+#include "pkix/pkixnss.h"
 #include "sslt.h"
+#include "NSSErrorsService.h"
 #include "TunnelUtils.h"
 #include "TCPFastOpenLayer.h"
 
@@ -417,7 +419,7 @@ nsHttpConnection::EnsureNPNComplete(nsresult &aOut0RTTWriteHandshakeValue,
         return true;
     }
 
-    nsresult rv;
+    nsresult rv = NS_OK;
     nsCOMPtr<nsISupports> securityInfo;
     nsCOMPtr<nsISSLSocketControl> ssl;
     nsAutoCString negotiatedNPN;
@@ -537,12 +539,12 @@ nsHttpConnection::EnsureNPNComplete(nsresult &aOut0RTTWriteHandshakeValue,
         bool earlyDataAccepted = false;
         if (mWaitingFor0RTTResponse) {
             // Check if early data has been accepted.
-            rv = ssl->GetEarlyDataAccepted(&earlyDataAccepted);
+            nsresult rvEarlyData = ssl->GetEarlyDataAccepted(&earlyDataAccepted);
             LOG(("nsHttpConnection::EnsureNPNComplete [this=%p] - early data "
                  "that was sent during 0RTT %s been accepted [rv=%" PRIx32 "].",
                  this, earlyDataAccepted ? "has" : "has not", static_cast<uint32_t>(rv)));
 
-            if (NS_FAILED(rv) ||
+            if (NS_FAILED(rvEarlyData) ||
                 NS_FAILED(mTransaction->Finish0RTT(!earlyDataAccepted, negotiatedNPN != mEarlyNegotiatedALPN))) {
                 LOG(("nsHttpConection::EnsureNPNComplete [this=%p] closing transaction %p", this, mTransaction.get()));
                 mTransaction->Close(NS_ERROR_NET_RESET);
@@ -655,6 +657,9 @@ npnComplete:
                                      : ((handshakeSucceeded) ? NO_ESNI_SUCCESSFUL : NO_ESNI_FAILED));
     }
 
+    if (rv == psm::GetXPCOMFromNSSError(mozilla::pkix::MOZILLA_PKIX_ERROR_MITM_DETECTED)) {
+        gSocketTransportService->SetNotTrustedMitmDetected();
+    }
     return true;
 }
 

@@ -161,7 +161,8 @@ nsSocketTransportService::nsSocketTransportService()
     , mPolling(false)
 #endif
     , mEsniEnabled(false)
-    , mEsniDisabledMitm(false)
+    , mTrustedMitmDetected(false)
+    , mNotTrustedMitmDetected(false)
 {
     NS_ASSERTION(NS_IsMainThread(), "wrong thread");
 
@@ -1434,7 +1435,7 @@ nsSocketTransportService::UpdatePrefs()
     bool esniMitmPref = false;
     rv = Preferences::GetBool(ESNI_DISABLED_MITM, &esniMitmPref);
     if (NS_SUCCEEDED(rv)) {
-        mEsniDisabledMitm = esniMitmPref;
+        mTrustedMitmDetected = esniMitmPref;
     }
 
     return NS_OK;
@@ -1533,6 +1534,7 @@ nsSocketTransportService::Observe(nsISupports *subject,
         ShutdownThread();
     } else if (!strcmp(topic, NS_NETWORK_LINK_TOPIC)) {
         mLastNetworkLinkChangeTime = PR_IntervalNow();
+        mNotTrustedMitmDetected = false;
     }
 
     return NS_OK;

@@ -1145,9 +1145,9 @@ nsSocketTransport::ResolveHost()
                                  mOriginAttributes,
                                  getter_AddRefs(mDNSRequest));
     mEsniQueried = false;
-    if (NS_SUCCEEDED(rv) &&
-        !(mConnectionFlags & (DONT_TRY_ESNI | BE_CONSERVATIVE)) &&
-        mSocketTransportService->IsEsniEnabled()) {
+    if (mSocketTransportService->IsEsniEnabled() &&
+        NS_SUCCEEDED(rv) &&
+        !(mConnectionFlags & (DONT_TRY_ESNI | BE_CONSERVATIVE))) {
 
         bool isSSL = false;
         for (unsigned int i = 0; i < mTypeCount; ++i) {
@@ -3052,37 +3052,6 @@ nsSocketTransport::OnLookupComplete(nsICancelable *request,
     return NS_OK;
 }
 
-const nsDependentCSubstring
-TrimWhitespace(const nsACString& aStr)
-{
-  nsACString::const_iterator start, end;
-
-  aStr.BeginReading(start);
-  aStr.EndReading(end);
-
-  // Skip whitespace characters in the beginning
-  while (start != end && *start == ' ') {
-    ++start;
-  }
-
-  // Skip whitespace characters in the end.
-  while (end != start) {
-      --end;
-
-      if (*end != ' ') {
-          // Step back to the last non-whitespace character.
-          ++end;
-
-          break;
-      }
-  }
-
-  // Return a substring for the string w/o leading and/or trailing
-  // whitespace
-
-  return Substring(start, end);
-}
-
 NS_IMETHODIMP
 nsSocketTransport::OnLookupByTypeComplete(nsICancelable      *request,
                                           nsIDNSByTypeRecord *txtResponse,
@@ -3095,9 +3064,8 @@ nsSocketTransport::OnLookupByTypeComplete(nsICancelable      *request,
     mDNSTxtRequest = nullptr;
 
     if (NS_SUCCEEDED(status)) {
-        nsAutoCString txtRecord;
-        txtResponse->GetRecordsAsOneString(txtRecord);
-        mDNSRecordTxt = TrimWhitespace(txtRecord);
+        txtResponse->GetRecordsAsOneString(mDNSRecordTxt);
+        mDNSRecordTxt.Trim(" ");
     }
     Telemetry::Accumulate(Telemetry::ESNI_KEYS_RECORDS_FOUND,
                           NS_SUCCEEDED(status));

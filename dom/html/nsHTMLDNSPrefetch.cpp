@@ -71,7 +71,7 @@ nsHTMLDNSPrefetch::Initialize()
   sDisablePrefetchHTTPSPref =
     Preferences::GetBool("network.dns.disablePrefetchFromHTTPS", true);
 
-  sEsniEnabled = Preferences::GetBool("network.security.esni.enabled", true);
+  sEsniEnabled = Preferences::GetBool("network.security.esni.enabled", false);
 
   NS_IF_RELEASE(sDNSService);
   nsresult rv;

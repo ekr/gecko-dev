@@ -156,9 +156,10 @@ IsLowPriority(uint16_t flags)
 #define RES_KEY_FLAGS(_f) ((_f) & (nsHostResolver::RES_CANON_NAME |     \
                                    nsHostResolver::RES_DISABLE_TRR))
 
-nsHostKey::nsHostKey(const nsACString& aHost, uint16_t aFlags,
+nsHostKey::nsHostKey(const nsACString& aHost, uint16_t aType, uint16_t aFlags,
                      uint16_t aAf, bool aPb, const nsACString& aOriginsuffix)
   : host(aHost)
+  , type(aType)
   , flags(aFlags)
   , af(aAf)
   , pb(aPb)
@@ -1909,6 +1910,7 @@ nsHostResolver::CancelAsyncRequest(const nsACString &host,
 
         for (RefPtr<nsResolveHostCallback> c : rec->mCallbacks) {
             if (c->EqualsAsyncListener(aListener)) {
+                c->remove();
                 recPtr = rec;
                 c->OnResolveHostComplete(this, recPtr, status);
                 break;

@@ -776,7 +776,7 @@ function handleRequest(req, res) {
                          "2062586B67646D39705932556761584D6762586B676347467A63336476636D513D", // esni keys.
                          "hex");
 
-    res.setHeader('Content-Type', 'application/dns-udpwireformat');
+    res.setHeader('Content-Type', 'application/dns-message');
     res.setHeader('Content-Length', content.length);
     res.writeHead(200);
     res.write(content);

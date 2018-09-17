@@ -58,7 +58,7 @@ struct nsHostKey
     uint16_t af;
     bool     pb;
     const nsCString originSuffix;
-    explicit nsHostKey(const nsACString& host, uint16_t flags,
+    explicit nsHostKey(const nsACString& host, uint16_t  type, uint16_t flags,
                        uint16_t af, bool pb, const nsACString& originSuffix);
     bool operator==(const nsHostKey& other) const;
     size_t SizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;

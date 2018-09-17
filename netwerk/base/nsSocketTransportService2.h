@@ -120,7 +120,12 @@ public:
                                                        !mSleepPhase; }
     PRIntervalTime MaxTimeForPrClosePref() {return mMaxTimeForPrClosePref; }
 
-    bool IsEsniEnabled() { return mEsniEnabled && !mEsniDisabledMitm; }
+    bool IsEsniEnabled() { return mEsniEnabled && !mTrustedMitmDetected &&
+                                  !mNotTrustedMitmDetected; }
+
+    void SetNotTrustedMitmDetected() {
+      mNotTrustedMitmDetected = true;
+    }
 
 protected:
 
@@ -307,7 +312,8 @@ private:
     void TryRepairPollableEvent();
 
     bool mEsniEnabled;
-    bool mEsniDisabledMitm;
+    bool mTrustedMitmDetected;
+    bool mNotTrustedMitmDetected;
 };
 
 extern nsSocketTransportService *gSocketTransportService;

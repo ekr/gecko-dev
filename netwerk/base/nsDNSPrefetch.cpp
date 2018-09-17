@@ -23,7 +23,7 @@ nsDNSPrefetch::Initialize(nsIDNSService *aDNSService)
     NS_IF_RELEASE(sDNSService);
     sDNSService =  aDNSService;
     NS_IF_ADDREF(sDNSService);
-    mozilla::Preferences::AddBoolVarCache(&sESNIEnabled, "network.http.rcwn.enabled");
+    mozilla::Preferences::AddBoolVarCache(&sESNIEnabled, "network.security.esni.enabled");
     return NS_OK;
 }
 
