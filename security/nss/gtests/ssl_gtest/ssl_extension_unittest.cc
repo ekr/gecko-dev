@@ -611,7 +611,6 @@ TEST_F(TlsExtensionTest13Stream, WrongServerKeyShare) {
   EXPECT_EQ(SSL_ERROR_BAD_MAC_READ, server_->error_code());
 }
 
-// TODO(ekr@rtfm.com): This is the wrong error code. See bug 1307269.
 TEST_F(TlsExtensionTest13Stream, UnknownServerKeyShare) {
   const uint16_t wrong_group = 0xffff;
 
@@ -625,10 +624,10 @@ TEST_F(TlsExtensionTest13Stream, UnknownServerKeyShare) {
   DataBuffer buf(key_share, sizeof(key_share));
   EnsureTlsSetup();
   MakeTlsFilter<TlsExtensionReplacer>(server_, ssl_tls13_key_share_xtn, buf);
-  client_->ExpectSendAlert(kTlsAlertMissingExtension);
+  client_->ExpectSendAlert(kTlsAlertIllegalParameter);
   server_->ExpectSendAlert(kTlsAlertBadRecordMac);
   ConnectExpectFail();
-  EXPECT_EQ(SSL_ERROR_MISSING_KEY_SHARE, client_->error_code());
+  EXPECT_EQ(SSL_ERROR_RX_MALFORMED_KEY_SHARE, client_->error_code());
   EXPECT_EQ(SSL_ERROR_BAD_MAC_READ, server_->error_code());
 }
 

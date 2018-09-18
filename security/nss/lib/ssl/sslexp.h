@@ -452,8 +452,35 @@ typedef SECStatus(PR_CALLBACK *SSLResumptionTokenCallback)(
                          (PRFileDesc * _fd, PRUint32 _size), \
                          (fd, size))
 
-/* Deprecated experimental APIs */
 
+/* Set up the Encrypted SNI Key
+ *
+ * See draft-rescorla-tls-esni.
+ *
+ */
+#define SSL_GenerateESNIKeyPair(fd, group, privKey, pubKey, out, outlen, maxlen) \
+    SSL_EXPERIMENTAL_API("SSL_GenerateESNIKeyPair",\
+        (PRFileDesc * _fd,  \
+         SSLNamedGroup _group,                        \
+         SECKEYPrivateKey ** _privKey,                 \
+         SECKEYPublicKey ** _pubKey, PRUint8 *_out, unsigned int *_outlen, unsigned int _maxlen), \
+                         (fd, group, privKey, pubKey, out, outlen, maxlen))
+
+#define SSL_SetESNIKeyPair(fd, privKey, pubKey, group)        \
+    SSL_EXPERIMENTAL_API("SSL_SetESNIKeyPair",\
+        (PRFileDesc * _fd,  \
+         SECKEYPrivateKey * _privKey,                 \
+         SECKEYPublicKey * _pubKey,                             \
+         SSLNamedGroup _group), (fd, privKey, pubKey, group))
+
+#define SSL_EnableESNI(fd, esniKeys, esniKeysLen, dummySNI) \
+    SSL_EXPERIMENTAL_API("SSL_EnableESNI", \
+        (PRFileDesc *_fd, \
+         const PRUint8* _esniKeys,   \
+         unsigned int _esniKeysLen, \
+         const char *_dummySNI), (fd, esniKeys, esniKeysLen, dummySNI))
+
+/* Deprecated experimental APIs */
 #define SSL_UseAltServerHelloType(fd, enable) SSL_DEPRECATED_EXPERIMENTAL_API
 
 SEC_END_PROTOS

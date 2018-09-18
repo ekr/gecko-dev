@@ -21,6 +21,7 @@
 #include "tls13hkdf.h"
 #include "tls13con.h"
 #include "tls13err.h"
+#include "tls13esni.h"
 #include "tls13exthandle.h"
 #include "tls13hashstate.h"
 
@@ -132,21 +133,6 @@ const char keylogLabelExporterSecret[] = "EXPORTER_SECRET";
 /* Belt and suspenders in case we ever add a TLS 1.4. */
 PR_STATIC_ASSERT(SSL_LIBRARY_VERSION_MAX_SUPPORTED <=
                  SSL_LIBRARY_VERSION_TLS_1_3);
-
-/* Use this instead of FATAL_ERROR when no alert shall be sent. */
-#define LOG_ERROR(ss, prError)                                                     \
-    do {                                                                           \
-        SSL_TRC(3, ("%d: TLS13[%d]: fatal error %d in %s (%s:%d)",                 \
-                    SSL_GETPID(), ss->fd, prError, __func__, __FILE__, __LINE__)); \
-        PORT_SetError(prError);                                                    \
-    } while (0)
-
-/* Log an error and generate an alert because something is irreparably wrong. */
-#define FATAL_ERROR(ss, prError, desc)       \
-    do {                                     \
-        LOG_ERROR(ss, prError);              \
-        tls13_FatalError(ss, prError, desc); \
-    } while (0)
 
 void
 tls13_FatalError(sslSocket *ss, PRErrorCode prError, SSL3AlertDescription desc)
@@ -355,16 +341,16 @@ tls13_ComputeHash(sslSocket *ss, SSL3Hashes *hashes,
 }
 
 SECStatus
-tls13_CreateKeyShare(sslSocket *ss, const sslNamedGroupDef *groupDef)
+tls13_CreateKeyShare(sslSocket *ss, const sslNamedGroupDef *groupDef,
+                     sslEphemeralKeyPair **keyPair)
 {
     SECStatus rv;
-    sslEphemeralKeyPair *keyPair = NULL;
     const ssl3DHParams *params;
 
     PORT_Assert(groupDef);
     switch (groupDef->keaType) {
         case ssl_kea_ecdh:
-            rv = ssl_CreateECDHEphemeralKeyPair(ss, groupDef, &keyPair);
+            rv = ssl_CreateECDHEphemeralKeyPair(ss, groupDef, keyPair);
             if (rv != SECSuccess) {
                 return SECFailure;
             }
@@ -372,7 +358,7 @@ tls13_CreateKeyShare(sslSocket *ss, const sslNamedGroupDef *groupDef)
         case ssl_kea_dh:
             params = ssl_GetDHEParams(groupDef);
             PORT_Assert(params->name != ssl_grp_ffdhe_custom);
-            rv = ssl_CreateDHEKeyPair(groupDef, params, &keyPair);
+            rv = ssl_CreateDHEKeyPair(groupDef, params, keyPair);
             if (rv != SECSuccess) {
                 return SECFailure;
             }
@@ -383,8 +369,21 @@ tls13_CreateKeyShare(sslSocket *ss, const sslNamedGroupDef *groupDef)
             return SECFailure;
     }
 
-    PR_APPEND_LINK(&keyPair->link, &ss->ephemeralKeyPairs);
     return rv;
+}
+
+SECStatus
+tls13_AddKeyShare(sslSocket *ss, const sslNamedGroupDef *groupDef)
+{
+    sslEphemeralKeyPair *keyPair = NULL;
+    SECStatus rv;
+
+    rv = tls13_CreateKeyShare(ss, groupDef, &keyPair);
+    if (rv != SECSuccess) {
+        return SECFailure;
+    }
+    PR_APPEND_LINK(&keyPair->link, &ss->ephemeralKeyPairs);
+    return SECSuccess;
 }
 
 SECStatus
@@ -414,27 +413,35 @@ tls13_SetupClientHello(sslSocket *ss)
     NewSessionTicket *session_ticket = NULL;
     sslSessionID *sid = ss->sec.ci.sid;
     unsigned int numShares = 0;
+    SECStatus rv;
 
     PORT_Assert(ss->opt.noLocks || ssl_HaveSSL3HandshakeLock(ss));
     PORT_Assert(ss->opt.noLocks || ssl_HaveXmitBufLock(ss));
     PORT_Assert(PR_CLIST_IS_EMPTY(&ss->ephemeralKeyPairs));
 
+    /* Do encrypted SNI. This may create a key share as a side effect. */
+    rv = tls13_ClientSetupESNI(ss);
+    if (rv != SECSuccess) {
+        return SECFailure;
+    }
+
     /* Select the first enabled group.
      * TODO(ekr@rtfm.com): be smarter about offering the group
      * that the other side negotiated if we are resuming. */
-    for (i = 0; i < SSL_NAMED_GROUP_COUNT; ++i) {
-        SECStatus rv;
-        if (!ss->namedGroupPreferences[i]) {
-            continue;
+    if (PR_CLIST_IS_EMPTY(&ss->ephemeralKeyPairs)) {
+            for (i = 0; i < SSL_NAMED_GROUP_COUNT; ++i) {
+                if (!ss->namedGroupPreferences[i]) {
+                    continue;
+                }
+                rv = tls13_AddKeyShare(ss, ss->namedGroupPreferences[i]);
+                if (rv != SECSuccess) {
+                    return SECFailure;
+                }
+                if (++numShares > ss->additionalShares) {
+                    break;
+                }
+            }
         }
-        rv = tls13_CreateKeyShare(ss, ss->namedGroupPreferences[i]);
-        if (rv != SECSuccess) {
-            return SECFailure;
-        }
-        if (++numShares > ss->additionalShares) {
-            break;
-        }
-    }
 
     if (PR_CLIST_IS_EMPTY(&ss->ephemeralKeyPairs)) {
         PORT_SetError(SSL_ERROR_NO_CIPHERS_SUPPORTED);
@@ -456,8 +463,6 @@ tls13_SetupClientHello(sslSocket *ss)
     }
 
     if (ss->statelessResume) {
-        SECStatus rv;
-
         PORT_Assert(ss->sec.ci.sid);
         rv = tls13_RecoverWrappedSharedSecret(ss, ss->sec.ci.sid);
         if (rv != SECSuccess) {
@@ -487,7 +492,7 @@ tls13_SetupClientHello(sslSocket *ss)
 }
 
 static SECStatus
-tls13_ImportDHEKeyShare(sslSocket *ss, SECKEYPublicKey *peerKey,
+tls13_ImportDHEKeyShare(SECKEYPublicKey *peerKey,
                         PRUint8 *b, PRUint32 length,
                         SECKEYPublicKey *pubKey)
 {
@@ -518,10 +523,12 @@ tls13_ImportDHEKeyShare(sslSocket *ss, SECKEYPublicKey *peerKey,
     return SECSuccess;
 }
 
-static SECStatus
+SECStatus
 tls13_HandleKeyShare(sslSocket *ss,
                      TLS13KeyShareEntry *entry,
-                     sslKeyPair *keyPair)
+                     sslKeyPair *keyPair,
+                     SSLHashType hash,
+                     PK11SymKey **out)
 {
     PORTCheapArenaPool arena;
     SECKEYPublicKey *peerKey;
@@ -540,14 +547,14 @@ tls13_HandleKeyShare(sslSocket *ss,
 
     switch (entry->group->keaType) {
         case ssl_kea_ecdh:
-            rv = ssl_ImportECDHKeyShare(ss, peerKey,
+            rv = ssl_ImportECDHKeyShare(peerKey,
                                         entry->key_exchange.data,
                                         entry->key_exchange.len,
                                         entry->group);
             mechanism = CKM_ECDH1_DERIVE;
             break;
         case ssl_kea_dh:
-            rv = tls13_ImportDHEKeyShare(ss, peerKey,
+            rv = tls13_ImportDHEKeyShare(peerKey,
                                          entry->key_exchange.data,
                                          entry->key_exchange.len,
                                          keyPair->pubKey);
@@ -561,10 +568,10 @@ tls13_HandleKeyShare(sslSocket *ss,
         goto loser;
     }
 
-    ss->ssl3.hs.dheSecret = PK11_PubDeriveWithKDF(
+    *out = PK11_PubDeriveWithKDF(
         keyPair->privKey, peerKey, PR_FALSE, NULL, NULL, mechanism,
-        tls13_GetHkdfMechanism(ss), CKA_DERIVE, 0, CKD_NULL, NULL, NULL);
-    if (!ss->ssl3.hs.dheSecret) {
+        tls13_GetHkdfMechanismForHash(hash), CKA_DERIVE, 0, CKD_NULL, NULL, NULL);
+    if (!*out) {
         ssl_MapLowLevelError(SSL_ERROR_KEY_EXCHANGE_FAILURE);
         goto loser;
     }
@@ -2025,7 +2032,7 @@ tls13_HandleClientKeyShare(sslSocket *ss, TLS13KeyShareEntry *peerShare)
     tls13_SetKeyExchangeType(ss, peerShare->group);
 
     /* Generate our key */
-    rv = tls13_CreateKeyShare(ss, peerShare->group);
+    rv = tls13_AddKeyShare(ss, peerShare->group);
     if (rv != SECSuccess) {
         return rv;
     }
@@ -2045,7 +2052,9 @@ tls13_HandleClientKeyShare(sslSocket *ss, TLS13KeyShareEntry *peerShare)
         return SECFailure; /* Error code set already. */
     }
 
-    rv = tls13_HandleKeyShare(ss, peerShare, keyPair->keys);
+    rv = tls13_HandleKeyShare(ss, peerShare, keyPair->keys,
+                              tls13_GetHash(ss),
+                              &ss->ssl3.hs.dheSecret);
     return rv; /* Error code set already. */
 }
 
@@ -2645,7 +2654,9 @@ tls13_HandleServerKeyShare(sslSocket *ss)
 
     PORT_Assert(ssl_NamedGroupEnabled(ss, entry->group));
 
-    rv = tls13_HandleKeyShare(ss, entry, keyPair->keys);
+    rv = tls13_HandleKeyShare(ss, entry, keyPair->keys,
+                              tls13_GetHash(ss),
+                              &ss->ssl3.hs.dheSecret);
     if (rv != SECSuccess)
         return SECFailure; /* Error code set by caller. */
 
@@ -3201,6 +3212,22 @@ tls13_SetSpecRecordVersion(sslSocket *ss, ssl3CipherSpec *spec)
                  SSL_GETPID(), ss->fd, spec, spec->recordVersion));
 }
 
+SSLAEADCipher
+tls13_GetAead(const ssl3BulkCipherDef *cipherDef)
+{
+    switch (cipherDef->calg) {
+        case ssl_calg_aes_gcm:
+            return tls13_AESGCM;
+        case ssl_calg_chacha20:
+            return tls13_ChaCha20Poly1305;
+            break;
+        default:
+            PORT_Assert(PR_FALSE);
+            PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
+            return NULL;
+    }
+}
+
 static SECStatus
 tls13_SetupPendingCipherSpec(sslSocket *ss, ssl3CipherSpec *spec)
 {
@@ -3224,16 +3251,9 @@ tls13_SetupPendingCipherSpec(sslSocket *ss, ssl3CipherSpec *spec)
                 SSL_GETPID(), ss->fd, suite));
 
     spec->cipherDef = ssl_GetBulkCipherDef(ssl_LookupCipherSuiteDef(suite));
-    switch (spec->cipherDef->calg) {
-        case ssl_calg_aes_gcm:
-            spec->aead = tls13_AESGCM;
-            break;
-        case ssl_calg_chacha20:
-            spec->aead = tls13_ChaCha20Poly1305;
-            break;
-        default:
-            PORT_Assert(0);
-            return SECFailure;
+    spec->aead = tls13_GetAead(spec->cipherDef);
+    if (!spec->aead) {
+        return SECFailure;
     }
 
     if (spec->epoch == TrafficKeyEarlyApplicationData) {
@@ -3538,7 +3558,7 @@ tls13_AESGCM(ssl3KeyMaterial *keys,
     CK_GCM_PARAMS gcmParams;
     unsigned char nonce[12];
 
-    PORT_Assert(additionalDataLen > 8);
+    PORT_Assert(additionalDataLen >= 8);
     memset(&gcmParams, 0, sizeof(gcmParams));
     gcmParams.pIv = nonce;
     gcmParams.ulIvLen = sizeof(nonce);
@@ -3563,7 +3583,7 @@ tls13_ChaCha20Poly1305(ssl3KeyMaterial *keys, PRBool doDecrypt,
     CK_NSS_AEAD_PARAMS aeadParams;
     unsigned char nonce[12];
 
-    PORT_Assert(additionalDataLen > 8);
+    PORT_Assert(additionalDataLen >= 8);
     memset(&aeadParams, 0, sizeof(aeadParams));
     aeadParams.pNonce = nonce;
     aeadParams.ulNonceLen = sizeof(nonce);
@@ -3615,7 +3635,22 @@ tls13_HandleEncryptedExtensions(sslSocket *ss, PRUint8 *b, PRUint32 length)
         ss->xtnData.nextProto.data = NULL;
         ss->xtnData.nextProtoState = SSL_NEXT_PROTO_NO_SUPPORT;
     }
-    rv = ssl3_HandleExtensions(ss, &b, &length, ssl_hs_encrypted_extensions);
+
+    rv = ssl3_ParseExtensions(ss, &b, &length);
+    if (rv != SECSuccess) {
+        return SECFailure; /* Error code set below */
+    }
+
+    /* If we sent ESNI, check the nonce. */
+    if (ss->xtnData.esniPrivateKey) {
+        rv = tls13_ClientCheckEsniXtn(ss);
+        if (rv != SECSuccess) {
+            return SECFailure;
+        }
+    }
+
+    /* Handle the rest of the extensions. */
+    rv = ssl3_HandleParsedExtensions(ss, ssl_hs_encrypted_extensions);
     if (rv != SECSuccess) {
         return SECFailure; /* Error code set below */
     }
@@ -4747,7 +4782,8 @@ static const struct {
     { ssl_tls13_certificate_authorities_xtn, _M1(certificate_request) },
     { ssl_tls13_supported_versions_xtn, _M3(client_hello, server_hello,
                                             hello_retry_request) },
-    { ssl_record_size_limit_xtn, _M2(client_hello, encrypted_extensions) }
+    { ssl_record_size_limit_xtn, _M2(client_hello, encrypted_extensions) },
+    { ssl_tls13_encrypted_sni_xtn, _M2(client_hello, encrypted_extensions) }
 };
 
 tls13ExtensionStatus

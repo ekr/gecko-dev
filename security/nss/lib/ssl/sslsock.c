@@ -18,6 +18,7 @@
 #include "private/pprio.h"
 #include "nss.h"
 #include "pk11pqg.h"
+#include "tls13esni.h"
 
 static const sslSocketOps ssl_default_ops = { /* No SSL. */
                                               ssl_DefConnect,
@@ -361,6 +362,22 @@ ssl_DupSocket(sslSocket *os)
         ss->resumptionTokenCallback = os->resumptionTokenCallback;
         ss->resumptionTokenContext = os->resumptionTokenContext;
 
+        if (os->esniPrivateKey) {
+            ss->esniPrivateKey = ssl_CopyEphemeralKeyPair(ss->esniPrivateKey);
+            if (!ss->esniPrivateKey) {
+                goto loser;
+            }
+        }
+        if (os->esniKeysRecord.len) {
+            rv = SECITEM_CopyItem(NULL, &ss->esniKeysRecord, &os->esniKeysRecord);
+            if (rv != SECSuccess) {
+                goto loser;
+            }
+        }
+        if (os->peerEsniKeys) {
+            // TODO(ekr@rtfm.com): Implement.
+            abort();
+        }
         /* Create security data */
         rv = ssl_CopySecurityInfo(ss, os);
         if (rv != SECSuccess) {
@@ -446,6 +463,12 @@ ssl_DestroySocketContents(sslSocket *ss)
 
     ssl_ClearPRCList(&ss->ssl3.hs.dtlsSentHandshake, NULL);
     ssl_ClearPRCList(&ss->ssl3.hs.dtlsRcvdHandshake, NULL);
+
+    if (ss->esniPrivateKey) {
+        ssl_FreeEphemeralKeyPair(ss->esniPrivateKey);
+    }
+    SECITEM_FreeItem(&ss->esniKeysRecord, PR_FALSE);
+    tls13_DestroyESNIKeys(ss->peerEsniKeys);
 }
 
 /*
@@ -3831,6 +3854,9 @@ ssl_CopyEphemeralKeyPair(sslEphemeralKeyPair *keyPair)
 void
 ssl_FreeEphemeralKeyPair(sslEphemeralKeyPair *keyPair)
 {
+    if (!keyPair)
+        return;
+
     ssl_FreeKeyPair(keyPair->keys);
     PR_REMOVE_LINK(&keyPair->link);
     PORT_Free(keyPair);
@@ -3938,6 +3964,9 @@ ssl_NewSocket(PRBool makeLocks, SSLProtocolVariant protocolVariant)
     PR_INIT_CLIST(&ss->ssl3.hs.dtlsRcvdHandshake);
     dtls_InitTimers(ss);
 
+    ss->esniPrivateKey = NULL;
+    ss->peerEsniKeys = NULL;
+
     if (makeLocks) {
         rv = ssl_MakeLocks(ss);
         if (rv != SECSuccess)
@@ -4014,6 +4043,9 @@ struct {
     EXP(SetResumptionToken),
     EXP(GetResumptionTokenInfo),
     EXP(DestroyResumptionTokenInfo),
+    EXP(GenerateESNIKeyPair),
+    EXP(SetESNIKeyPair),
+    EXP(EnableESNI),
 #endif
     { "", NULL }
 };

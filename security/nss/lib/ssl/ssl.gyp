@@ -43,6 +43,7 @@
         'ssltrace.c',
         'sslver.c',
         'tls13con.c',
+        'tls13esni.c',
         'tls13exthandle.c',
         'tls13hashstate.c',
         'tls13hkdf.c',
